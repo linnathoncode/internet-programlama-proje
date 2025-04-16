@@ -2,6 +2,7 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
 using Music_Tracker_Backend.Models;
+using System.Runtime.InteropServices;
 
 namespace InternetProg4.Controllers
 {
@@ -67,8 +68,8 @@ namespace InternetProg4.Controllers
             var tokenResponse = JsonSerializer.Deserialize<SpotifyTokenResponse>(content);
 
             // Save access and refresh tokens (this should be stored more securely in real apps)
-            _accessToken = tokenResponse.access_token;
-            _refreshToken = tokenResponse.refresh_token;
+            _accessToken = tokenResponse.AccessToken;
+            _refreshToken = tokenResponse.RefreshToken;
 
             return Ok("Authorization successful! You can now hit /spotify/recent");
         }
@@ -113,5 +114,69 @@ namespace InternetProg4.Controllers
 
             return Ok(playedTracks); // return track list to frontend
         }
+
+        // ────────────────────────────────────────────────────────────────
+        // 4 - Get User Information- requires user to be logged in
+        // ────────────────────────────────────────────────────────────────
+        [HttpGet("user-info")]
+        public async Task<IActionResult> GetUserInfo()
+        {
+            // Check if the user has authenticated (access token must be present)
+            if (string.IsNullOrEmpty(_accessToken))
+                return Unauthorized("You need to authenticate first at /spotify/login");
+
+            var client = _httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
+
+            // Send GET request to Spotify's "Get Current User's Profile" endpoint
+            var response = await client.GetAsync("https://api.spotify.com/v1/me");
+
+            // If the response is not successful, return the corresponding error code
+            if (!response.IsSuccessStatusCode)
+            {
+                return StatusCode((int)response.StatusCode, "Failed to get user information");
+            }
+
+            // Read Json as string then parse it into document
+            var json = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+
+            var userInfo = new SpotifyUser();
+
+            // Get the information about the user
+            // Null check for optional fields
+            userInfo.Id = doc.RootElement.GetProperty("id").GetString();
+
+            if (doc.RootElement.TryGetProperty("email", out JsonElement emailElement))
+            {
+                userInfo.Email = emailElement.GetString();
+            }
+            else
+            {
+                userInfo.Email = null;
+            }
+
+            if (doc.RootElement.TryGetProperty("display_name", out JsonElement displayNameElement))
+            {
+                userInfo.DisplayName = displayNameElement.GetString();
+            }
+
+            if (doc.RootElement.TryGetProperty("images", out JsonElement imagesElement) &&
+                imagesElement.ValueKind == JsonValueKind.Array &&
+                imagesElement.GetArrayLength() > 0)
+            {
+                var firstImage = imagesElement[0];
+
+                userInfo.ProfileImage = new ProfileImage
+                {
+                    Url = firstImage.GetProperty("url").GetString(),
+                    Height = firstImage.TryGetProperty("height", out var heightEl) ? heightEl.GetInt32() : 0,
+                    Width = firstImage.TryGetProperty("width", out var widthEl) ? widthEl.GetInt32() : 0,
+                };
+            }
+
+            return Ok(userInfo);
+        }
+
     }
 }

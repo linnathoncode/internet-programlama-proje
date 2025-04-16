@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\MONSTER\\Desktop\\Music Tracking Project\\music-tracker-backend\\music-tracker-backend\\Music-Tracker-Backend.csproj": {}
+    "C:\\Users\\MONSTER\\Desktop\\Music Tracking Project\\Music-Tracker-Backend\\Music-Tracker-Backend\\Music-Tracker-Backend.csproj": {}
   },
   "projects": {
-    "C:\\Users\\MONSTER\\Desktop\\Music Tracking Project\\music-tracker-backend\\music-tracker-backend\\Music-Tracker-Backend.csproj": {
+    "C:\\Users\\MONSTER\\Desktop\\Music Tracking Project\\Music-Tracker-Backend\\Music-Tracker-Backend\\Music-Tracker-Backend.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\MONSTER\\Desktop\\Music Tracking Project\\music-tracker-backend\\music-tracker-backend\\Music-Tracker-Backend.csproj",
+        "projectUniqueName": "C:\\Users\\MONSTER\\Desktop\\Music Tracking Project\\Music-Tracker-Backend\\Music-Tracker-Backend\\Music-Tracker-Backend.csproj",
         "projectName": "Music-Tracker-Backend",
-        "projectPath": "C:\\Users\\MONSTER\\Desktop\\Music Tracking Project\\music-tracker-backend\\music-tracker-backend\\Music-Tracker-Backend.csproj",
+        "projectPath": "C:\\Users\\MONSTER\\Desktop\\Music Tracking Project\\Music-Tracker-Backend\\Music-Tracker-Backend\\Music-Tracker-Backend.csproj",
         "packagesPath": "C:\\Users\\MONSTER\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\MONSTER\\Desktop\\Music Tracking Project\\music-tracker-backend\\music-tracker-backend\\obj\\",
+        "outputPath": "C:\\Users\\MONSTER\\Desktop\\Music Tracking Project\\Music-Tracker-Backend\\Music-Tracker-Backend\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\MONSTER\\AppData\\Roaming\\NuGet\\NuGet.Config",
