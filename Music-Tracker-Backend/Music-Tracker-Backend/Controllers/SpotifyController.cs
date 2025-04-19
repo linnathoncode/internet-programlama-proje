@@ -31,6 +31,7 @@ namespace InternetProg4.Controllers
         // ────────────────────────────────────────────────────────────────
         // 1️ - Spotify Login Endpoint - redirects user to Spotify login page
         // ────────────────────────────────────────────────────────────────
+        // Handle login for new user and existing user logic
         [HttpGet("login")]
         public IActionResult Login()
         {

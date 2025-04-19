@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Music-Tracker-Backend")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6b49165ad02d58758d00e021be7cd8c506989cd8")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+eabbad5027602b69572810e7dce009efa08126c6")]
 [assembly: System.Reflection.AssemblyProductAttribute("Music-Tracker-Backend")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Music-Tracker-Backend")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
