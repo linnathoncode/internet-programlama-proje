@@ -1,1 +1,13 @@
-/Music-Tracker-Backend/Music-Tracker-Backend/keys/
+# Build artifacts
+/bin/
+/obj/
+
+# User-specific files
+*.user
+*.suo
+
+# Debug output
+*.pdb
+
+# Secrets
+**/keys/
