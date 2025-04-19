@@ -17,8 +17,9 @@ namespace Music_Tracker_Backend.Controllers
             _firestoreService = firestoreService;
         }
 
+
         // POST api/spotifyuser
-        [HttpPost]
+        [HttpPost] 
         public async Task<IActionResult> AddOrUpdateSpotifyUserAsync([FromBody] SpotifyUser spotifyUser)
         {
             if (spotifyUser == null)
