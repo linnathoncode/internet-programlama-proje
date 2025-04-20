@@ -1,10 +1,9 @@
-﻿using Google.Apis.Auth.OAuth2;
-using Google.Cloud.Firestore;
+﻿using Google.Cloud.Firestore;
 using Music_Tracker_Backend.Models;
 
 namespace Music_Tracker_Backend.Services
 {
-    public class FirestoreService
+    public class FirestoreService : IUserService
     {
         private readonly FirestoreDb _firestore;
         public FirestoreService(IConfiguration configuration)
@@ -13,6 +12,14 @@ namespace Music_Tracker_Backend.Services
 
             _firestore = FirestoreDb.Create(projectId);
         }
+
+        // Wrapper for method AddOrUpdateSpotifyUserAsync
+        public async Task<string> AddOrUpdateUserAsync(SpotifyUser spotifyUser)
+        {
+            return await AddOrUpdateSpotifyUserAsync(spotifyUser);
+        }
+
+
 
         // Method to add a SpotifyUser to Firestore
         public async Task<string> AddOrUpdateSpotifyUserAsync(SpotifyUser spotifyUser)
@@ -68,4 +75,10 @@ namespace Music_Tracker_Backend.Services
             }
         }
     }
+}
+
+public interface IUserService
+{
+    Task<string> AddOrUpdateUserAsync(SpotifyUser user);
+    Task<SpotifyUser?> GetSpotifyUserAsync(string userId);
 }

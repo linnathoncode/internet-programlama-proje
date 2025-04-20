@@ -11,7 +11,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient();
 
 // Register FirestoreService
-builder.Services.AddSingleton<FirestoreService>();
+builder.Services.AddSingleton<IUserService, FirestoreService>();
 
 var app = builder.Build();
 

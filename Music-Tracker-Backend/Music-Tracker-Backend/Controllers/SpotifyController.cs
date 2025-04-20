@@ -12,15 +12,16 @@ namespace InternetProg4.Controllers
     {
         private readonly IConfiguration _config;
         private readonly IHttpClientFactory _httpClientFactory;
-
+        private readonly IUserService _userService;
         // These will temporarily store tokens after login
         private static string _accessToken;
         private static string _refreshToken;
 
-        public SpotifyController(IConfiguration config, IHttpClientFactory httpClientFactory)
+        public SpotifyController(IConfiguration config, IHttpClientFactory httpClientFactory, IUserService userService)
         {
             _config = config;
             _httpClientFactory = httpClientFactory;
+            _userService = userService;
         }
 
         // Spotify credentials from appsettings.json
@@ -31,7 +32,6 @@ namespace InternetProg4.Controllers
         // ────────────────────────────────────────────────────────────────
         // 1️ - Spotify Login Endpoint - redirects user to Spotify login page
         // ────────────────────────────────────────────────────────────────
-        // Handle login for new user and existing user logic
         [HttpGet("login")]
         public IActionResult Login()
         {
@@ -68,16 +68,57 @@ namespace InternetProg4.Controllers
             var content = await response.Content.ReadAsStringAsync();
             var tokenResponse = JsonSerializer.Deserialize<SpotifyTokenResponse>(content);
 
-            // Save access and refresh tokens (this should be stored more securely in real apps)
-            _accessToken = tokenResponse.AccessToken;
-            _refreshToken = tokenResponse.RefreshToken;
+            if (tokenResponse == null || string.IsNullOrEmpty(tokenResponse.AccessToken))
+            {
+                return BadRequest($"{tokenResponse.AccessToken}, Failed to retrieve access token from Spotify.");
 
-            return Ok("Authorization successful! You can now hit /spotify/recent");
+            }
+            
+            // Get user profile from spotify
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenResponse.AccessToken);
+            var userInfoResponse = await client.GetAsync("https://api.spotify.com/v1/me");
+
+            if(!userInfoResponse.IsSuccessStatusCode)
+            {
+                return StatusCode((int)userInfoResponse.StatusCode, "Failed to get user info");
+
+            }
+            var userJson = await userInfoResponse.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(userJson);
+            
+            // Handle user info and tokens
+            var user = new SpotifyUser
+            {
+                Id = doc.RootElement.GetProperty("id").GetString(),
+                Email = doc.RootElement.TryGetProperty("email", out var emailEl) ? emailEl.GetString() : null,
+                DisplayName = doc.RootElement.TryGetProperty("display_name", out var displayNameEl) ? displayNameEl.GetString() : null,
+                SpotifyToken = tokenResponse,
+            };
+
+            // Handle profile image
+            if(doc.RootElement.TryGetProperty("images", out var imagesEl)
+            && imagesEl.ValueKind == JsonValueKind.Array &&
+            imagesEl.GetArrayLength() > 0
+            ){
+                var img = imagesEl[0];
+                user.ProfileImage = new ProfileImage
+                {
+                    Url = img.GetProperty("url").GetString(),
+                    Height = img.TryGetProperty("height", out var heightEl) ? heightEl.GetInt32() : 300,
+                    Width = img.TryGetProperty("width", out var widthEl) ? widthEl.GetInt32() : 300,
+
+                };
+            }
+
+            await _userService.AddOrUpdateUserAsync(user);
+            return Ok("User authenticated and saved!");
+            
         }
 
         // ────────────────────────────────────────────────────────────────
         // 3️ - Get Recently Played Tracks - requires user to be logged in
         // ────────────────────────────────────────────────────────────────
+        // CHANGE HOW ACCESS TOKENS OR RETRIEVED
         [HttpGet("recent")]
         public async Task<IActionResult> GetRecentlyPlayed()
         {
