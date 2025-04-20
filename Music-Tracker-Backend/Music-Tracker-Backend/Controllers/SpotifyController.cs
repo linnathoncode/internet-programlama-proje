@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using Music_Tracker_Backend.Models;
 using System.Runtime.InteropServices;
+using Music_Tracker_Backend.keys;
 
 namespace InternetProg4.Controllers
 {
@@ -26,7 +27,7 @@ namespace InternetProg4.Controllers
 
         // Spotify credentials from appsettings.json
         private string ClientId => _config["Spotify:ClientId"];
-        private string ClientSecret => _config["Spotify:ClientSecret"];
+        private string ClientSecret => Secrets.SpotifyClientSecret;
         private string RedirectUri => _config["Spotify:RedirectUri"];
 
         // ────────────────────────────────────────────────────────────────
