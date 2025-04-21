@@ -14,15 +14,17 @@ namespace InternetProg4.Controllers
         private readonly IConfiguration _config;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IUserService _userService;
+        private readonly IJwtService _jwtService;
         // These will temporarily store tokens after login
         private static string _accessToken;
         private static string _refreshToken;
 
-        public SpotifyController(IConfiguration config, IHttpClientFactory httpClientFactory, IUserService userService)
+        public SpotifyController(IConfiguration config, IHttpClientFactory httpClientFactory, IUserService userService, IJwtService jwtService)
         {
             _config = config;
             _httpClientFactory = httpClientFactory;
             _userService = userService;
+            _jwtService = jwtService;
         }
 
         // Spotify credentials from appsettings.json
@@ -112,6 +114,22 @@ namespace InternetProg4.Controllers
             }
 
             await _userService.AddOrUpdateUserAsync(user);
+
+            // Generate a JWT token
+            string token = _jwtService.GenerateToken(user.Id);
+            
+            // Debug only
+            //Console.WriteLine("Generated JWT Token: " + token);
+
+            // Set the JWT token in secure cookie
+            Response.Cookies.Append("jwt", token, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTime.UtcNow.AddMinutes(double.Parse(_config["JwtSettings:ExpiryMinutes"]))
+            });
+
             return Ok("User authenticated and saved!");
             
         }
