@@ -4,6 +4,8 @@ using System.Text.Json;
 using Music_Tracker_Backend.Models;
 using System.Runtime.InteropServices;
 using Music_Tracker_Backend.keys;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace InternetProg4.Controllers
 {
@@ -15,9 +17,6 @@ namespace InternetProg4.Controllers
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IUserService _userService;
         private readonly IJwtService _jwtService;
-        // These will temporarily store tokens after login
-        private static string _accessToken;
-        private static string _refreshToken;
 
         public SpotifyController(IConfiguration config, IHttpClientFactory httpClientFactory, IUserService userService, IJwtService jwtService)
         {
@@ -138,15 +137,43 @@ namespace InternetProg4.Controllers
         // 3️ - Get Recently Played Tracks - requires user to be logged in
         // ────────────────────────────────────────────────────────────────
         // CHANGE HOW ACCESS TOKENS OR RETRIEVED
+        [Authorize] // to access claims
         [HttpGet("recent")]
         public async Task<IActionResult> GetRecentlyPlayed()
         {
-            // Ensure user has authenticated
-            if (string.IsNullOrEmpty(_accessToken))
-                return Unauthorized("You need to authenticate first at /spotify/login");
+            // Get claims from jwt token
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized("User ID not found in token.");
+
+
+            // Get user information
+            var user = await _userService.GetSpotifyUserAsync(userId);
+            if (user == null || string.IsNullOrEmpty(user.SpotifyToken.AccessToken))
+            {
+                return Unauthorized("Spotify access token not found for user.");
+            }
+            var accessToken = user.SpotifyToken.AccessToken;
+            
+            // Check if access token still valid
+            // If expired refresh it with refresh token
+            if (user.SpotifyToken.IsExpired())
+            {
+                var newAccesToken = await RefreshSpotifyAccessToken(user.SpotifyToken.RefreshToken);
+                if (newAccesToken != null)
+                {
+                    user.SpotifyToken.AccessToken = newAccesToken;
+                    await _userService.AddOrUpdateUserAsync(user);
+                    accessToken = newAccesToken;
+                }
+                else
+                {
+                    return Unauthorized("Unable to refresh access token");
+                }
+            }
 
             var client = _httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
             // Fetch recently played tracks (limit 10)
             var response = await client.GetAsync("https://api.spotify.com/v1/me/player/recently-played?limit=10");
@@ -179,15 +206,43 @@ namespace InternetProg4.Controllers
         // ────────────────────────────────────────────────────────────────
         // 4 - Get User Information- requires user to be logged in
         // ────────────────────────────────────────────────────────────────
+        // Gets user info from spotify api not from the database
+        [Authorize]
         [HttpGet("user-info")]
         public async Task<IActionResult> GetUserInfo()
         {
-            // Check if the user has authenticated (access token must be present)
-            if (string.IsNullOrEmpty(_accessToken))
-                return Unauthorized("You need to authenticate first at /spotify/login");
+            // Get claims from jwt token
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized("User ID not found in token.");
+
+            // Get user information
+            var user = await _userService.GetSpotifyUserAsync(userId);
+            if (user == null || string.IsNullOrEmpty(user.SpotifyToken.AccessToken))
+            {
+                return Unauthorized("Spotify access token not found for user.");
+            }
+            var accessToken = user.SpotifyToken.AccessToken;
+
+            // Check if access token still valid
+            // If expired refresh it with refresh token
+            if (user.SpotifyToken.IsExpired())
+            {
+                var newAccesToken = await RefreshSpotifyAccessToken(user.SpotifyToken.RefreshToken);
+                if (newAccesToken != null)
+                {
+                    user.SpotifyToken.AccessToken = newAccesToken;
+                    await _userService.AddOrUpdateUserAsync(user);
+                    accessToken = newAccesToken;
+                }
+                else
+                {
+                    return Unauthorized("Unable to refresh access token");
+                }
+            }
 
             var client = _httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
             // Send GET request to Spotify's "Get Current User's Profile" endpoint
             var response = await client.GetAsync("https://api.spotify.com/v1/me");
@@ -239,5 +294,34 @@ namespace InternetProg4.Controllers
             return Ok(userInfo);
         }
 
+
+
+        // ────────────────────────────────────────────────────────────────
+        // Helper Method = Refresh access token
+        // ────────────────────────────────────────────────────────────────
+        private async Task<String?> RefreshSpotifyAccessToken(string refreshToken)
+        {
+            var client = _httpClientFactory.CreateClient();
+            var postData = new Dictionary<string, string>
+            {
+                {"grant_type", "refresh_token" },
+                {"refresh_token", refreshToken  },
+                {"client_id", ClientId },
+                {"client_secret", ClientSecret }
+            };
+
+            var response = await client.PostAsync("https://accounts.spotify.com/api/token", new FormUrlEncodedContent(postData));
+            var content = await response.Content.ReadAsStringAsync();
+            var refreshedToken = JsonSerializer.Deserialize<SpotifyTokenResponse>(content);
+
+            if(refreshedToken != null && !string.IsNullOrEmpty(refreshedToken.AccessToken))
+            {
+                return refreshedToken.AccessToken;
+            }
+            else
+            {
+                return null;
+            }
+        } 
     }
 }

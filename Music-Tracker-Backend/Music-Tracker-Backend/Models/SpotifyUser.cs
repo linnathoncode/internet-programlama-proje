@@ -65,5 +65,9 @@ namespace Music_Tracker_Backend.Models
         [FirestoreProperty]
         [JsonPropertyName("scope")]
         public string Scope { get; set; }
+
+        [FirestoreProperty]
+        public DateTime IssuedAt { get; set; } = DateTime.UtcNow;
+        public bool IsExpired() => DateTime.UtcNow > IssuedAt.AddSeconds(ExpiresIn - 60); // 60 seconds as buffer
     }
 }
