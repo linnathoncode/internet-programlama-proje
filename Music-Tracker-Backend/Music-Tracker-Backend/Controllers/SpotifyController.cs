@@ -129,8 +129,8 @@ namespace InternetProg4.Controllers
                 Expires = DateTime.UtcNow.AddMinutes(double.Parse(_config["JwtSettings:ExpiryMinutes"]))
             });
 
-            return Ok("User authenticated and saved!");
-            
+            return Redirect("http://localhost:5173/");
+
         }
 
         // ────────────────────────────────────────────────────────────────
@@ -294,6 +294,61 @@ namespace InternetProg4.Controllers
             return Ok(userInfo);
         }
 
+        // ────────────────────────────────────────────────────────────────
+        // 5 - Returns whether user is logged in or not
+        // ────────────────────────────────────────────────────────────────
+        [HttpGet("auth-status")]
+        public async Task<IActionResult> IsUserLoggedIn()
+        {
+            // Checks whether jwt exists
+            var token = Request.Cookies["jwt"];
+            if (string.IsNullOrEmpty(token))
+                return Ok(new { loggedIn = false });
+
+            // Extract userId from JWT claims
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Ok(new { loggedIn = false});
+
+            // Retrieve the user from your database
+            var user = await _userService.GetSpotifyUserAsync(userId);
+            if (user == null || string.IsNullOrEmpty(user.SpotifyToken.AccessToken))
+                return Ok(new { loggedIn = false });
+
+            var accessToken = user.SpotifyToken.AccessToken;
+
+            // Check if the token is expired
+            if (user.SpotifyToken.IsExpired())
+            {
+                var newAccessToken = await RefreshSpotifyAccessToken(user.SpotifyToken.RefreshToken);
+                if (!string.IsNullOrEmpty(newAccessToken))
+                {
+                    // Save the new token
+                    user.SpotifyToken.AccessToken = newAccessToken;
+                    await _userService.AddOrUpdateUserAsync(user);
+                    return Ok(new { loggedIn = true });
+                }
+                else
+                {
+                    return Ok(new { loggedIn = false }); // Could not refresh token
+                }
+            }
+
+            return Ok(new { loggedIn = true }); // Token is still valid
+        }
+
+
+        // ────────────────────────────────────────────────────────────────
+        // 6 - Logs user out (deletes jwt token from cookies)
+        // ────────────────────────────────────────────────────────────────
+        [HttpPost("logout")]
+        public IActionResult Logout()
+        {
+            // Remove the JWT cookie
+            Response.Cookies.Delete("jwt");
+            return Ok(new { message = "Logged out successfully" });
+
+        }
 
 
         // ────────────────────────────────────────────────────────────────
