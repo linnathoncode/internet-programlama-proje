@@ -1,12 +1,8 @@
-export default {
-  content: ["./src/**/*.{html,js}"], // Adjust paths as needed
-  theme: {
-    extend: {
-      fontFamily: {
-        calibri: ["Calibri", "sans-serif"],
-        inter: ["Inter", "sans-serif"],
-      },
-    },
+/** @type {import('postcss-load-config').Config} */
+const config = {
+  plugins: {
+    "@tailwindcss/postcss": {},
   },
-  plugins: [],
 };
+
+export default config;
