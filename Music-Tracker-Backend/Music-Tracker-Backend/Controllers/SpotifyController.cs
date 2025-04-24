@@ -297,45 +297,45 @@ namespace InternetProg4.Controllers
         // ────────────────────────────────────────────────────────────────
         // 5 - Returns whether user is logged in or not
         // ────────────────────────────────────────────────────────────────
-        [HttpGet("auth-status")]
-        public async Task<IActionResult> IsUserLoggedIn()
-        {
-            // Checks whether jwt exists
-            var token = Request.Cookies["jwt"];
-            if (string.IsNullOrEmpty(token))
-                return Ok(new { loggedIn = false });
-
-            // Extract userId from JWT claims
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
-                return Ok(new { loggedIn = false});
-
-            // Retrieve the user from your database
-            var user = await _userService.GetSpotifyUserAsync(userId);
-            if (user == null || string.IsNullOrEmpty(user.SpotifyToken.AccessToken))
-                return Ok(new { loggedIn = false });
-
-            var accessToken = user.SpotifyToken.AccessToken;
-
-            // Check if the token is expired
-            if (user.SpotifyToken.IsExpired())
+            [HttpGet("auth-status")]
+            public async Task<IActionResult> IsUserLoggedIn()
             {
-                var newAccessToken = await RefreshSpotifyAccessToken(user.SpotifyToken.RefreshToken);
-                if (!string.IsNullOrEmpty(newAccessToken))
-                {
-                    // Save the new token
-                    user.SpotifyToken.AccessToken = newAccessToken;
-                    await _userService.AddOrUpdateUserAsync(user);
-                    return Ok(new { loggedIn = true });
-                }
-                else
-                {
-                    return Ok(new { loggedIn = false }); // Could not refresh token
-                }
-            }
+                // Checks whether jwt exists
+                var token = Request.Cookies["jwt"];
+                if (string.IsNullOrEmpty(token))
+                    return Ok(new { loggedIn = false });
 
-            return Ok(new { loggedIn = true }); // Token is still valid
-        }
+                // Extract userId from JWT claims
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userId))
+                    return Ok(new { loggedIn = false});
+
+                // Retrieve the user from your database
+                var user = await _userService.GetSpotifyUserAsync(userId);
+                if (user == null || string.IsNullOrEmpty(user.SpotifyToken.AccessToken))
+                    return Ok(new { loggedIn = false });
+
+                var accessToken = user.SpotifyToken.AccessToken;
+
+                // Check if the token is expired
+                if (user.SpotifyToken.IsExpired())
+                {
+                    var newAccessToken = await RefreshSpotifyAccessToken(user.SpotifyToken.RefreshToken);
+                    if (!string.IsNullOrEmpty(newAccessToken))
+                    {
+                        // Save the new token
+                        user.SpotifyToken.AccessToken = newAccessToken;
+                        await _userService.AddOrUpdateUserAsync(user);
+                        return Ok(new { loggedIn = true });
+                    }
+                    else
+                    {
+                        return Ok(new { loggedIn = false }); // Could not refresh token
+                    }
+                }
+
+                return Ok(new { loggedIn = true }); // Token is still valid
+            }
 
 
         // ────────────────────────────────────────────────────────────────
