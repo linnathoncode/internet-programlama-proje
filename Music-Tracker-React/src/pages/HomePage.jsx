@@ -5,7 +5,21 @@ function HomePage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [userInfo, setUserInfo] = useState(null);
+  const handleLogout = async () => {
+    try {
+      const response = await fetch("/api/spotify/logout", {
+        method: "POST",
+        credentials: "include",
+      });
 
+      if (!response.ok) throw new Error("Logout failed");
+
+      window.location.href = "/login";
+    } catch (err) {
+      console.error("Error logging out:", err);
+      alert("Logout failed.");
+    }
+  };
   useEffect(() => {
     fetch("/api/spotify/auth-status", {
       credentials: "include",
@@ -53,7 +67,10 @@ function HomePage() {
           <button className="block w-full text-left px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition">
             Settings
           </button>
-          <button className="block w-full text-left px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition">
+          <button
+            onClick={handleLogout}
+            className="block w-full text-left px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition"
+          >
             Logout
           </button>
         </nav>
