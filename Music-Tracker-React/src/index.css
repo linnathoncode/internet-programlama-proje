@@ -1,18 +1,8 @@
 /* index.css */
 @import "tailwindcss";
 
-.custom-login-button {
-  border-radius: 1.5rem; /* equivalent to rounded-3xl */
-  background-color: rgb(67, 154, 134);
-  opacity: 1;
-  padding: 0.75rem 3rem; /* py-3 px-12 */
-  color: white;
-  font-size: 1.125rem; /* text-lg */
-  font-weight: 600; /* font-semibold */
-  backdrop-filter: blur(12px); /* backdrop-blur-md */
-  transition: background-color 0.3s ease; /* transition-colors duration-300 */
-}
-
-.custom-login-button:hover {
-  background-color: rgb(233, 217, 133);
+@theme {
+  --color-primary: #001b2e;
+  --color-secondary: #397367;
+  --color-accent: #ffd23f;
 }
