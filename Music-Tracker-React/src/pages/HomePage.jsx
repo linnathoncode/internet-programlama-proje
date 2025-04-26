@@ -5,6 +5,25 @@ function HomePage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [userInfo, setUserInfo] = useState(null);
+  const [tracks, setTracks] = useState([]);
+  const [limit, setLimit] = useState(1);
+
+  const handleFetchRecentListens = async () => {
+    try {
+      const response = await fetch(`/api/spotify/recent?limit=${limit}`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch recent listens");
+
+      const data = await response.json();
+      setTracks(data);
+    } catch (err) {
+      console.error("Error fetching recent listens", err);
+      alert("Failed to fetch recent listens.");
+    }
+  };
+
+  // cookie management is handled in the backend
   const handleLogout = async () => {
     try {
       const response = await fetch("/api/spotify/logout", {
@@ -20,29 +39,40 @@ function HomePage() {
       alert("Logout failed.");
     }
   };
+
+  // useEffect is a react hook
+  // it runs side effects after component render
+  // a side effect is anything that affects something outside react
+  // like fetching data, updating the documnt title, subscribing to events
+  // setting timers
   useEffect(() => {
+    // When the component mount, make a request to check the authentication status
     fetch("/api/spotify/auth-status", {
-      credentials: "include",
+      credentials: "include", // Include cookies with the request (contains jwt token)
     })
       .then((res) => {
+        // If response is not OK -> throw error
         if (!res.ok) throw new Error("Network error");
         return res.json();
       })
       .then((data) => {
-        console.log(data.loggedIn);
+        // console.log(data.loggedIn);
+        // If user is not logged in according to the respond, redirect to the login page
         if (!data.loggedIn) {
           navigate("/login");
           return;
         }
-        // Authenticated
+        // If user is authenticatd, save their info and stop the loading state
         setUserInfo(data);
         setLoading(false);
       })
       .catch((err) => {
+        // If there is any error, redirect to the login page
         console.error("Auth check failed:", err);
         navigate("/login");
       });
   }, [navigate]);
+
   if (loading)
     return <p className="text-white text-center mt-10">Loading...</p>;
 
@@ -87,7 +117,11 @@ function HomePage() {
           <label className="text-lg font-medium">
             How many recent listens?
           </label>
-          <select className="bg-black/30 border border-white/20 rounded-lg px-4 py-2 text-white backdrop-blur-md shadow-sm">
+          <select
+            value={limit}
+            onChange={(e) => setLimit(Number(e.target.value))}
+            className="bg-black/30 border border-white/20 rounded-lg px-4 py-2 text-white backdrop-blur-md shadow-sm"
+          >
             {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
               <option key={num} value={num}>
                 {num}
@@ -95,22 +129,25 @@ function HomePage() {
             ))}
           </select>
 
-          <button className="px-6 py-2 bg-primary hover:bg-secondary text-white rounded-full shadow-lg transition duration-300">
+          <button
+            onClick={handleFetchRecentListens}
+            className="px-6 py-2 bg-primary hover:bg-secondary text-white rounded-full shadow-lg transition duration-300"
+          >
             Get Recent Listens
           </button>
         </div>
 
-        {/* Mock List */}
+        {/* List of Tracks */}
         <ul className="space-y-4">
-          {[1, 2, 3].map((id) => (
+          {tracks.map((track, index) => (
             <li
-              key={id}
+              key={index}
               className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center gap-4 backdrop-blur-md shadow-sm"
             >
               <div className="w-16 h-16 bg-gray-300/10 rounded-md" />
               <div>
-                <p className="font-semibold text-lg">Track Title {id}</p>
-                <p className="text-sm text-gray-300">Artist Name</p>
+                <p className="font-semibold text-lg">{track.trackName}</p>
+                <p className="text-sm text-gray-300">{track.artistName}</p>
               </div>
             </li>
           ))}

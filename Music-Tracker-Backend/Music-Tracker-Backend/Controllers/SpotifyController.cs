@@ -139,7 +139,7 @@ namespace InternetProg4.Controllers
         // CHANGE HOW ACCESS TOKENS OR RETRIEVED
         [Authorize] // to access claims
         [HttpGet("recent")]
-        public async Task<IActionResult> GetRecentlyPlayed()
+        public async Task<IActionResult> GetRecentlyPlayed([FromQuery] int limit = 10)
         {
             // Get claims from jwt token
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -176,7 +176,7 @@ namespace InternetProg4.Controllers
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
             // Fetch recently played tracks (limit 10)
-            var response = await client.GetAsync("https://api.spotify.com/v1/me/player/recently-played?limit=10");
+            var response = await client.GetAsync($"https://api.spotify.com/v1/me/player/recently-played?limit={limit}");
 
             if (!response.IsSuccessStatusCode)
                 return StatusCode((int)response.StatusCode, "Failed to get recently played tracks");
@@ -208,7 +208,7 @@ namespace InternetProg4.Controllers
         // ────────────────────────────────────────────────────────────────
         // Gets user info from spotify api not from the database
         [Authorize]
-        [HttpGet("user-info")]
+        [HttpGet("user-info")]  
         public async Task<IActionResult> GetUserInfo()
         {
             // Get claims from jwt token
