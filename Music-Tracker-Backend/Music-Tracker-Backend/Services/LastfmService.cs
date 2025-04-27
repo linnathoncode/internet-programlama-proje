@@ -27,59 +27,66 @@ namespace Music_Tracker_Backend.Services
         {
             try
             {
-                var artist = spotifyTrack.Artist; // Assuming SpotifyTrack has Artist field
-                var track = spotifyTrack.Title;   // Assuming SpotifyTrack has Name (track title) field
+                var artist = spotifyTrack.Artist;
+                var track = spotifyTrack.Title;
 
-                // Build the request URL for the Last.fm API
                 var url = $"{BaseUrl}?method=track.getInfo" +
                           $"&api_key={_lastFmApiKey}" +
                           $"&artist={Uri.EscapeDataString(artist)}" +
                           $"&track={Uri.EscapeDataString(track)}" +
                           "&format=json";
+
                 Console.WriteLine($"Lastfm Url: {url}");
 
-                // Send the request to Last.fm
                 var response = await _httpClient.GetStringAsync(url);
 
                 Console.WriteLine($"Response: {response}");
 
-                // Deserialize the response into a raw dynamic object
                 var jsonDocument = JsonDocument.Parse(response);
-                var trackElement = jsonDocument.RootElement.GetProperty("track");
 
-                // Manually map the LastfmTrack object
+                if (!jsonDocument.RootElement.TryGetProperty("track", out JsonElement trackElement))
+                {
+                    Console.WriteLine("No track data found.");
+                    return null;
+                }
+
                 var lastfmTrack = new LastfmTrack
                 {
-                    Mbid = trackElement.GetProperty("mbid").GetString(),
-                    Title = trackElement.GetProperty("name").GetString(),
-                    Artist = new Artist
-                    {
-                        Mbid = trackElement.GetProperty("artist").GetProperty("mbid").GetString(),
-                        Name = trackElement.GetProperty("artist").GetProperty("name").GetString(),
-                    },
-                    Album = new Album
-                    {
-                        Mbid = trackElement.GetProperty("album").GetProperty("mbid").GetString(),
-                        Title = trackElement.GetProperty("album").GetProperty("title").GetString(),
-                        // Populate CoverImages
-                        CoverImages = trackElement.GetProperty("album").GetProperty("image")
-                            .EnumerateArray()
-                            .Select(img => new CoverImage
-                            {
-                                Url = img.GetProperty("#text").GetString(),
-                                Size = img.GetProperty("size").GetString()  // Assume the size is available, adjust if not
-                            })
+                    Mbid = trackElement.TryGetProperty("mbid", out var mbidProp) ? mbidProp.GetString() : null,
+                    Title = trackElement.TryGetProperty("name", out var nameProp) ? nameProp.GetString() : null,
+                    Artist = trackElement.TryGetProperty("artist", out var artistElement)
+                        ? new Artist
+                        {
+                            Mbid = artistElement.TryGetProperty("mbid", out var artistMbidProp) ? artistMbidProp.GetString() : null,
+                            Name = artistElement.TryGetProperty("name", out var artistNameProp) ? artistNameProp.GetString() : null
+                        }
+                        : null,
+                    Album = trackElement.TryGetProperty("album", out var albumElement)
+                        ? new Album
+                        {
+                            Mbid = albumElement.TryGetProperty("mbid", out var albumMbidProp) ? albumMbidProp.GetString() : null,
+                            Title = albumElement.TryGetProperty("title", out var albumTitleProp) ? albumTitleProp.GetString() : null,
+                            CoverImages = albumElement.TryGetProperty("image", out var imagesElement)
+                                ? imagesElement.EnumerateArray()
+                                    .Select(img => new CoverImage
+                                    {
+                                        Url = img.TryGetProperty("#text", out var urlProp) ? urlProp.GetString() : null,
+                                        Size = img.TryGetProperty("size", out var sizeProp) ? sizeProp.GetString() : null
+                                    })
+                                    .Where(c => !string.IsNullOrEmpty(c.Url)) // Only take valid images
+                                    .ToList()
+                                : new List<CoverImage>()
+                        }
+                        : null,
+                    Genres = trackElement.TryGetProperty("toptags", out var toptagsElement)
+                        && toptagsElement.TryGetProperty("tag", out var tagsArrayElement)
+                        ? tagsArrayElement.EnumerateArray()
+                            .Select(tag => tag.TryGetProperty("name", out var tagNameProp) ? tagNameProp.GetString() : null)
+                            .Where(name => !string.IsNullOrEmpty(name))
                             .ToList()
-                    },
-                    // Populate Genres
-                    Genres = trackElement.GetProperty("toptags")
-                        .GetProperty("tag")
-                        .EnumerateArray()
-                        .Select(tag => tag.GetProperty("name").GetString())
-                        .ToList()
+                        : new List<string>()
                 };
 
-                // Set Spotify ID
                 lastfmTrack.SpotifyId = spotifyTrack.Id;
                 lastfmTrack.Duration = spotifyTrack.Duration;
 
@@ -91,6 +98,7 @@ namespace Music_Tracker_Backend.Services
                 return null;
             }
         }
+
 
 
     }
