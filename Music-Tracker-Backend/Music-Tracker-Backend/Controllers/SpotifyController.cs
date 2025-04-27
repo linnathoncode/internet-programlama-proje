@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using Music_Tracker_Backend.keys;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using Music_Tracker_Backend.Services;
 
 namespace InternetProg4.Controllers
 {
@@ -15,15 +16,16 @@ namespace InternetProg4.Controllers
     {
         private readonly IConfiguration _config;
         private readonly IHttpClientFactory _httpClientFactory;
-        private readonly IUserService _userService;
+        private readonly IDatabaseService _databaseService;
         private readonly IJwtService _jwtService;
-
-        public SpotifyController(IConfiguration config, IHttpClientFactory httpClientFactory, IUserService userService, IJwtService jwtService)
+        private readonly ILastfmService _lastfmService;
+        public SpotifyController(IConfiguration config, IHttpClientFactory httpClientFactory, IDatabaseService databaseService, IJwtService jwtService, ILastfmService lastfmService)
         {
             _config = config;
             _httpClientFactory = httpClientFactory;
-            _userService = userService;
+            _databaseService = databaseService;
             _jwtService = jwtService;
+            _lastfmService = lastfmService;
         }
 
         // Spotify credentials from appsettings.json
@@ -112,7 +114,7 @@ namespace InternetProg4.Controllers
                 };
             }
 
-            await _userService.AddOrUpdateUserAsync(user);
+            await _databaseService.AddOrUpdateUserAsync(user);
 
             // Generate a JWT token
             string token = _jwtService.GenerateToken(user.Id);
@@ -141,14 +143,14 @@ namespace InternetProg4.Controllers
         [HttpGet("recent")]
         public async Task<IActionResult> GetRecentlyPlayed([FromQuery] int limit = 10)
         {
-            // Get claims from jwt token
+            // Get claims from the cookie
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized("User ID not found in token.");
 
 
             // Get user information
-            var user = await _userService.GetSpotifyUserAsync(userId);
+            var user = await _databaseService.GetSpotifyUserAsync(userId);
             if (user == null || string.IsNullOrEmpty(user.SpotifyToken.AccessToken))
             {
                 return Unauthorized("Spotify access token not found for user.");
@@ -163,7 +165,7 @@ namespace InternetProg4.Controllers
                 if (newAccesToken != null)
                 {
                     user.SpotifyToken.AccessToken = newAccesToken;
-                    await _userService.AddOrUpdateUserAsync(user);
+                    await _databaseService.AddOrUpdateUserAsync(user);
                     accessToken = newAccesToken;
                 }
                 else
@@ -175,32 +177,73 @@ namespace InternetProg4.Controllers
             var client = _httpClientFactory.CreateClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-            // Fetch recently played tracks (limit 10)
+            // Fetch recently played tracks 
             var response = await client.GetAsync($"https://api.spotify.com/v1/me/player/recently-played?limit={limit}");
 
             if (!response.IsSuccessStatusCode)
                 return StatusCode((int)response.StatusCode, "Failed to get recently played tracks");
 
+
+
             var json = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
 
-            var playedTracks = new List<RecentlyPlayedTrack>();
+
+            // 
+
+            var spotifyTracks = new List<SpotifyTrack>();
 
             // Extract relevant data from each track
             foreach (var item in doc.RootElement.GetProperty("items").EnumerateArray())
             {
                 var track = item.GetProperty("track");
 
-                playedTracks.Add(new RecentlyPlayedTrack
+
+                // id, title, artists, albumname, duration
+                spotifyTracks.Add(new SpotifyTrack
                 {
-                    TrackName = track.GetProperty("name").GetString(),
-                    ArtistName = track.GetProperty("artists")[0].GetProperty("name").GetString(),
+                    Id = track.GetProperty("id").GetString(),
+                    Title = track.GetProperty("name").GetString(),
+                    Artist = track.GetProperty("artists")[0].GetProperty("name").GetString(),
                     AlbumName = track.GetProperty("album").GetProperty("name").GetString(),
-                    PlayedAt = item.GetProperty("played_at").GetDateTime(),
-                });
+                    Duration = track.GetProperty("duration_ms").GetInt32(),
+                    //TrackName = track.GetProperty("name").GetString(),
+                    //ArtistName = track.GetProperty("artists")[0].GetProperty("name").GetString(),
+                    //AlbumName = track.GetProperty("album").GetProperty("name").GetString(),
+                    //PlayedAt = item.GetProperty("played_at").GetDateTime(),
+                }) ;
+            }
+            var LastfmTracks = new List<LastfmTrack>();
+            // Get Last.fm tracks
+            foreach (SpotifyTrack track in spotifyTracks)
+            {
+                // Check if track exists in the database
+                var (found, lastfmTrack) = await _databaseService.GetTrackAsync(track.Id);
+
+                if (found)
+                {
+                    // If exists, add to the list and continue
+                    LastfmTracks.Add(lastfmTrack);
+                    continue;
+                }
+
+                // Track not found in database, fetch details from Last.fm API
+                lastfmTrack = await _lastfmService.GetLastfmTrackAsync(track);
+
+                if (lastfmTrack != null)
+                {
+                    // If track details were successfully retrieved, add to database and list
+                    await _databaseService.AddTrackAsync(lastfmTrack);
+                    LastfmTracks.Add(lastfmTrack);
+                }
+                else
+                {
+                    // Handle the case where Last.fm API does not return a valid track (optional)
+                    Console.WriteLine($"Track with Spotify ID {track.Id} not found on Last.fm.");
+                }
             }
 
-            return Ok(playedTracks); // return track list to frontend
+            return Ok(LastfmTracks); // return track list to frontend
         }
 
         // ────────────────────────────────────────────────────────────────
@@ -217,7 +260,7 @@ namespace InternetProg4.Controllers
                 return Unauthorized("User ID not found in token.");
 
             // Get user information
-            var user = await _userService.GetSpotifyUserAsync(userId);
+            var user = await _databaseService.GetSpotifyUserAsync(userId);
             if (user == null || string.IsNullOrEmpty(user.SpotifyToken.AccessToken))
             {
                 return Unauthorized("Spotify access token not found for user.");
@@ -232,7 +275,7 @@ namespace InternetProg4.Controllers
                 if (newAccesToken != null)
                 {
                     user.SpotifyToken.AccessToken = newAccesToken;
-                    await _userService.AddOrUpdateUserAsync(user);
+                    await _databaseService.AddOrUpdateUserAsync(user);
                     accessToken = newAccesToken;
                 }
                 else
@@ -311,7 +354,7 @@ namespace InternetProg4.Controllers
                     return Ok(new { loggedIn = false});
 
                 // Retrieve the user from your database
-                var user = await _userService.GetSpotifyUserAsync(userId);
+                var user = await _databaseService.GetSpotifyUserAsync(userId);
                 if (user == null || string.IsNullOrEmpty(user.SpotifyToken.AccessToken))
                     return Ok(new { loggedIn = false });
 
@@ -325,7 +368,7 @@ namespace InternetProg4.Controllers
                     {
                         // Save the new token
                         user.SpotifyToken.AccessToken = newAccessToken;
-                        await _userService.AddOrUpdateUserAsync(user);
+                        await _databaseService.AddOrUpdateUserAsync(user);
                         return Ok(new { loggedIn = true });
                     }
                     else

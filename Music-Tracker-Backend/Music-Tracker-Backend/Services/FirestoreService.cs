@@ -3,7 +3,7 @@ using Music_Tracker_Backend.Models;
 
 namespace Music_Tracker_Backend.Services
 {
-    public class FirestoreService : IUserService
+    public class FirestoreService : IDatabaseService
     {
         private readonly FirestoreDb _firestore;
         public FirestoreService(IConfiguration configuration)
@@ -74,11 +74,76 @@ namespace Music_Tracker_Backend.Services
                 return null;
             }
         }
+
+        // Add a track to Firestore
+        public async Task AddTrackAsync(LastfmTrack track)
+        {
+            try
+            {
+                var trackRef = _firestore.Collection("tracks").Document(track.SpotifyId);
+                await trackRef.SetAsync(track);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception or handle it appropriately
+                Console.WriteLine($"Error adding track: {ex.Message}");
+                throw new Exception("Failed to add track to Firestore.", ex);
+            }
+        }
+
+        // Get a track by its Spotify ID
+        public async Task<(bool, LastfmTrack)> GetTrackAsync(string spotifyId)
+        {
+            try
+            {
+                var trackRef = _firestore.Collection("tracks").Document(spotifyId);
+                var snapshot = await trackRef.GetSnapshotAsync();
+
+                if (snapshot.Exists)
+                {
+                    // Return true and the track if it exists
+                    return (true, snapshot.ConvertTo<LastfmTrack>());
+                }
+
+                // Return false and null if track not found
+                return (false, null);
+            }
+            catch (Exception ex)
+            {
+                // Log the exception or handle it appropriately
+                Console.WriteLine($"Error getting track: {ex.Message}");
+                throw new Exception("Failed to get track from Firestore.", ex);
+            }
+        }
+
+        // Update a track in Firestore
+        public async Task UpdateTrackAsync(LastfmTrack updatedTrack)
+        {
+            try
+            {
+                string spotifyId = updatedTrack.SpotifyId;
+                var trackRef = _firestore.Collection("tracks").Document(spotifyId);
+                await trackRef.SetAsync(updatedTrack, SetOptions.MergeAll); // Merge updates without overwriting entire document
+            }
+            catch (Exception ex)
+            {
+                // Log the exception or handle it appropriately
+                Console.WriteLine($"Error updating track: {ex.Message}");
+                throw new Exception("Failed to update track in Firestore.", ex);
+            }
+        }
+
     }
 }
 
-public interface IUserService
+public interface IDatabaseService
 {
     Task<string> AddOrUpdateUserAsync(SpotifyUser user);
     Task<SpotifyUser?> GetSpotifyUserAsync(string userId);
+    Task AddTrackAsync(LastfmTrack track);
+    
+    Task<(bool,LastfmTrack)> GetTrackAsync(string spotifyId);
+
+    Task UpdateTrackAsync(LastfmTrack track);
+
 }

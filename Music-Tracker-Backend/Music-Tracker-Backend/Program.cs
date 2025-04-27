@@ -13,12 +13,26 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient();
+builder.Services.AddHttpClient<LastfmService>();
+
+
+//// Register HttpClient
+//builder.Services.AddHttpClient<LastfmService>(client =>
+//{
+//    // Set up your Last.fm API base URL and other settings
+//    client.BaseAddress = new Uri("https://ws.audioscrobbler.com/2.0/"); // Last.fm base URL
+//    client.DefaultRequestHeaders.Add("Accept", "application/json");
+//});
+
+// Register the LastfmService with your API key (you can store it in appsettings.json)
+var lastFmApiKey = Secrets.LastfmKey; 
+builder.Services.AddSingleton<ILastfmService>(provider => new LastfmService(provider.GetRequiredService<HttpClient>(), lastFmApiKey));
 
 
 // Services, note services must be registered before builder.Build()
 
 // Register FirestoreService
-builder.Services.AddSingleton<IUserService, FirestoreService>();
+builder.Services.AddSingleton< IDatabaseService, FirestoreService>();
 
 // JWT
 builder.Services.AddScoped<IJwtService, JwtService>();
