@@ -4,21 +4,23 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Music_Tracker_Backend.Models;
 using static Google.Api.FieldInfo.Types;
+using Microsoft.Extensions.Logging;
+using Google.Protobuf.WellKnownTypes;
 
 namespace Music_Tracker_Backend.Services
 {
     public class LastfmService : ILastfmService
     {
         private readonly HttpClient _httpClient;
-        private readonly string _lastFmApiKey; // Store your Last.fm API key here
+        private readonly string _lastfmApiKey; // Store your Last.fm API key here
                                                //private readonly string _lastFmApiUrl = "https://ws.audioscrobbler.com/2.0/";
         private const string BaseUrl = "https://ws.audioscrobbler.com/2.0/";
 
 
-        public LastfmService(HttpClient httpClient, string lastFmApiKey)
+        public LastfmService(HttpClient httpClient, string lastfmApiKey)
         {
             _httpClient = httpClient;
-            _lastFmApiKey = lastFmApiKey;
+            _lastfmApiKey = lastfmApiKey;
 
         }
 
@@ -31,12 +33,12 @@ namespace Music_Tracker_Backend.Services
                 var track = spotifyTrack.Title;
 
                 var url = $"{BaseUrl}?method=track.getInfo" +
-                          $"&api_key={_lastFmApiKey}" +
+                          $"&api_key={_lastfmApiKey}" +
                           $"&artist={Uri.EscapeDataString(artist)}" +
                           $"&track={Uri.EscapeDataString(track)}" +
                           "&format=json";
 
-                Console.WriteLine($"Lastfm Url: {url}");
+                //Console.WriteLine($"Lastfm Url: {url}");
 
                 var response = await _httpClient.GetStringAsync(url);
 
@@ -95,11 +97,74 @@ namespace Music_Tracker_Backend.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error retrieving track from Last.fm: {ex.Message}");
-                return null;
+                return new();
             }
         }
 
+        public async Task<List<LastfmTrack>> GetSimilarTracksAsync(string? mbid, string? trackName, string? artistName, int limit)
+        {
 
+            try
+            {
+                var queryParams = !string.IsNullOrEmpty(mbid) ? $"&mbid={Uri.EscapeDataString(mbid)}&limit={limit}" : $"&artist={Uri.EscapeDataString(artistName)}&track={Uri.EscapeDataString(trackName)}&limit={limit}";
+                var url = $"{BaseUrl}?method=track.getsimilar" +
+                          $"&api_key={_lastfmApiKey}" + 
+                          queryParams + 
+                          "&format=json";
+                Console.WriteLine(url);
+
+                HttpResponseMessage response = await _httpClient.GetAsync(url);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"Status:{response.StatusCode} Request:{response.RequestMessage}");
+                    return null;
+                }
+                string json = await response.Content.ReadAsStringAsync();
+                using JsonDocument doc = JsonDocument.Parse(json);
+
+                List<LastfmTrack> similarTracks = new List<LastfmTrack>();
+
+                foreach(var trackElement in doc.RootElement.GetProperty("similartracks").GetProperty("track").EnumerateArray())
+                {
+                    LastfmTrack track = new LastfmTrack();
+
+                    track.Mbid = trackElement.TryGetProperty("mbid", out var mbidProp) ? mbidProp.GetString() : null;
+                    track.Title = trackElement.TryGetProperty("name", out var nameProp) ? nameProp.GetString() : null;
+                    track.Duration = trackElement.TryGetProperty("duration", out var durationProp) && durationProp.TryGetInt32(out var duration) ? duration : 0;
+                    track.Artist = trackElement.TryGetProperty("artist", out var artistElement)
+                        ? new Artist
+                        {
+                            Mbid = artistElement.TryGetProperty("mbid", out var artistMbidProp) ? artistMbidProp.GetString() : null,
+                            Name = artistElement.TryGetProperty("name", out var artistNameProp) ? artistNameProp.GetString() : null
+                        }
+                        : null;
+                    track.Album = new Album  // Not present in the response, but initializing with image as a fallback
+                    {
+                        CoverImages = trackElement.TryGetProperty("image", out var imagesElement)
+                            ? imagesElement.EnumerateArray()
+                                .Select(img => new CoverImage
+                                {
+                                    Url = img.TryGetProperty("#text", out var urlProp) ? urlProp.GetString() : null,
+                                    Size = img.TryGetProperty("size", out var sizeProp) ? sizeProp.GetString() : null
+                                })
+                                .Where(img => !string.IsNullOrEmpty(img.Url))
+                                .ToList()
+                            : new List<CoverImage>()
+                    };
+                    track.Genres = new List<string>(); // Not provided in this response
+                    similarTracks.Add(track);
+                }
+
+                return similarTracks;
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error retrieving similar tracks from Last.fm: {ex.Message}");
+                return new();
+            }
+        }
 
     }
 }
@@ -107,5 +172,6 @@ namespace Music_Tracker_Backend.Services
 public interface ILastfmService
 {
     Task<LastfmTrack> GetLastfmTrackAsync(SpotifyTrack spotifyTrack);
+    Task<List<LastfmTrack>> GetSimilarTracksAsync(string? mbid, string? trackName, string? artistName, int limit);
 
 }

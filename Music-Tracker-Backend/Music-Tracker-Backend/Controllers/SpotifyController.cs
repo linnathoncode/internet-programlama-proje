@@ -7,6 +7,7 @@ using Music_Tracker_Backend.keys;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using Music_Tracker_Backend.Services;
+using System.Net.Http;
 
 namespace InternetProg4.Controllers
 {
@@ -48,7 +49,7 @@ namespace InternetProg4.Controllers
 
             return Redirect(authUrl); // redirects user to Spotify login
         }
-
+      
         // ────────────────────────────────────────────────────────────────
         // 2️ - Callback Endpoint - handles Spotify's redirect after login
         // ────────────────────────────────────────────────────────────────
@@ -77,14 +78,19 @@ namespace InternetProg4.Controllers
                 return BadRequest($"{tokenResponse.AccessToken}, Failed to retrieve access token from Spotify.");
 
             }
-            
+
+            Console.WriteLine($"Token Scopes: {tokenResponse.Scope}");
+
+
             // Get user profile from spotify
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenResponse.AccessToken);
             var userInfoResponse = await client.GetAsync("https://api.spotify.com/v1/me");
 
             if(!userInfoResponse.IsSuccessStatusCode)
             {
-                return StatusCode((int)userInfoResponse.StatusCode, "Failed to get user info");
+                var errorContent = await userInfoResponse.Content.ReadAsStringAsync();
+                Console.WriteLine($"Spotify API Error: {errorContent}");
+                return StatusCode((int)userInfoResponse.StatusCode, errorContent);
 
             }
             var userJson = await userInfoResponse.Content.ReadAsStringAsync();
@@ -187,9 +193,6 @@ namespace InternetProg4.Controllers
 
             var json = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
-
-
-            // 
 
             var spotifyTracks = new List<SpotifyTrack>();
 
@@ -393,6 +396,115 @@ namespace InternetProg4.Controllers
 
         }
 
+        // ────────────────────────────────────────────────────────────────
+        // 7 - Get similar tracks (lastfm)
+        // ────────────────────────────────────────────────────────────────
+        [HttpGet("last-fm-get-similar")]
+        public async Task<IActionResult> GetSimilarTracks([FromQuery] string? mbid, string? artist, string? track, int limit = 10)
+        {
+            var lastfmTracks = await _lastfmService.GetSimilarTracksAsync(mbid: mbid, trackName: track, artistName: artist, limit: limit); ;
+
+            // For each Last.fm track, search for the corresponding Spotify track and assign the Spotify ID
+            foreach (var lastfmTrack in lastfmTracks)
+            {
+
+
+                var spotifyTrack = await SearchSpotifyForTrack(lastfmTrack.Artist?.Name, lastfmTrack.Title);
+
+                if (spotifyTrack != null)
+                {
+                    // Add the Spotify ID to the LastfmTrack
+                    lastfmTrack.SpotifyId = spotifyTrack.Id;
+                }
+                Console.WriteLine($"RETRIEVED: SPOTIFY ID {spotifyTrack.Id}");
+            }
+
+            return Ok(lastfmTracks); // Return the updated Last.fm tracks with Spotify IDs
+        }
+        // ────────────────────────────────────────────────────────────────
+        // Helper Method - Search for song
+        // ────────────────────────────────────────────────────────────────
+        [Authorize]
+        [HttpGet("search-for-track")]
+        public async Task<SpotifyTrack> SearchSpotifyForTrack(string artist, string track)
+        {
+            // Get claims from jwt token
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return new();
+
+            // Get user information
+            var user = await _databaseService.GetSpotifyUserAsync(userId);
+            if (user == null || string.IsNullOrEmpty(user.SpotifyToken.AccessToken))
+            {
+                return new();
+            }
+            var accessToken = user.SpotifyToken.AccessToken;
+
+            // Check if access token still valid
+            // If expired refresh it with refresh token
+            if (user.SpotifyToken.IsExpired())
+            {
+                var newAccesToken = await RefreshSpotifyAccessToken(user.SpotifyToken.RefreshToken);
+                if (newAccesToken != null)
+                {
+                    user.SpotifyToken.AccessToken = newAccesToken;
+                    await _databaseService.AddOrUpdateUserAsync(user);
+                    accessToken = newAccesToken;
+                }
+                else
+                {
+                    return new();
+                }
+            }
+
+            var client = _httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+            var baseUrl = "https://api.spotify.com/v1/search";
+
+            var queryUrl = $"?q=track:{Uri.EscapeDataString(track)}%20artist:{Uri.EscapeDataString(artist)}";
+
+            var url = baseUrl +
+                      queryUrl +
+                      "&type=track&limit=1";
+
+            Console.WriteLine(url);
+            // Make a GET request to the Spotify API with the search query
+            var response = await client.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+            {
+                // Handle errors, return null or throw exception
+                var errorContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Error: {errorContent}");
+                return null;
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+
+            var spotifyTracks = new List<SpotifyTrack>();
+
+            // Extract relevant data from each track
+            foreach (var item in doc.RootElement.GetProperty("tracks").GetProperty("items").EnumerateArray())
+            {
+                var searchTrack = item;
+
+                // id, title, artists, albumname, duration
+                spotifyTracks.Add(new SpotifyTrack
+                {
+                    Id = searchTrack.GetProperty("id").GetString(),
+                    Title = searchTrack.GetProperty("name").GetString(),
+                    Artist = searchTrack.GetProperty("artists")[0].GetProperty("name").GetString(),
+                    AlbumName = searchTrack.GetProperty("album").GetProperty("name").GetString(),
+                    Duration = searchTrack.GetProperty("duration_ms").GetInt32(),
+
+                });
+            }
+            return spotifyTracks[0];
+
+
+        }
 
         // ────────────────────────────────────────────────────────────────
         // Helper Method = Refresh access token

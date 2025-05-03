@@ -9,44 +9,44 @@ namespace Music_Tracker_Backend.Models
         [FirestoreProperty]
         public string SpotifyId { get; set; }
         [FirestoreProperty]
-        public string Mbid { get; set; }
+        public string? Mbid { get; set; }
         [FirestoreProperty]
-        public string Title { get; set; }
+        public string? Title { get; set; }
         [FirestoreProperty]
-        public Album Album { get; set; }
+        public Album? Album { get; set; }
         [FirestoreProperty]
-        public Artist Artist { get; set; }
+        public Artist? Artist { get; set; }
         [FirestoreProperty]
-        public int Duration { get; set; }
+        public int? Duration { get; set; }
         [FirestoreProperty]
-        public List<string> Genres { get; set; }
+        public List<string> Genres { get; set; } = new();
 
     }
     [FirestoreData]
     public class Album
     {
         [FirestoreProperty]
-        public string Mbid { get; set; }
+        public string? Mbid { get; set; }
         [FirestoreProperty]
-        public string Title { get; set; }
+        public string? Title { get; set; }
         [FirestoreProperty]
-        public List<CoverImage> CoverImages { get; set; }
+        public List<CoverImage> CoverImages { get; set; } = new();
         
     }
     [FirestoreData]
     public class Artist
     {
         [FirestoreProperty]
-        public string Mbid { get; set;}
+        public string? Mbid { get; set;}
         [FirestoreProperty]
-        public string Name { get; set; }
+        public string? Name { get; set; }
     }
     [FirestoreData]
     public class CoverImage
     {
         [FirestoreProperty]
-        public string Url { get; set; }
+        public string? Url { get; set; }
         [FirestoreProperty]
-        public string Size { get; set; }
+        public string? Size { get; set; }
     }
 }
