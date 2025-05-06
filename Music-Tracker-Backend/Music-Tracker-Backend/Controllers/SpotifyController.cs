@@ -404,20 +404,28 @@ namespace InternetProg4.Controllers
         {
             var lastfmTracks = await _lastfmService.GetSimilarTracksAsync(mbid: mbid, trackName: track, artistName: artist, limit: limit); ;
 
-            // For each Last.fm track, search for the corresponding Spotify track and assign the Spotify ID
-            foreach (var lastfmTrack in lastfmTracks)
-            {
+  
 
+            // For each Last.fm track, search for the corresponding Spotify track and assign the Spotify ID
+            for (int i = 0; i < lastfmTracks.Count;)
+            {
+                var lastfmTrack = lastfmTracks[i];
 
                 var spotifyTrack = await SearchSpotifyForTrack(lastfmTrack.Artist?.Name, lastfmTrack.Title);
 
-                if (spotifyTrack != null)
+                if (spotifyTrack != null && spotifyTrack.Id != null)
                 {
-                    // Add the Spotify ID to the LastfmTrack
                     lastfmTrack.SpotifyId = spotifyTrack.Id;
+                    Console.WriteLine($"Found Track Number {i}: {lastfmTrack.SpotifyId}");
+                    i++; // Only increment if not removing
                 }
-                Console.WriteLine($"RETRIEVED: SPOTIFY ID {spotifyTrack.Id}");
+                else
+                {
+                    Console.WriteLine($"Removed Track Number {i}: Id Not Found");
+                    lastfmTracks.RemoveAt(i); // Do not increment i if removing
+                }
             }
+
 
             return Ok(lastfmTracks); // Return the updated Last.fm tracks with Spotify IDs
         }
@@ -431,13 +439,13 @@ namespace InternetProg4.Controllers
             // Get claims from jwt token
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
-                return new();
+                return null;
 
             // Get user information
             var user = await _databaseService.GetSpotifyUserAsync(userId);
             if (user == null || string.IsNullOrEmpty(user.SpotifyToken.AccessToken))
             {
-                return new();
+                return null;
             }
             var accessToken = user.SpotifyToken.AccessToken;
 
@@ -454,7 +462,7 @@ namespace InternetProg4.Controllers
                 }
                 else
                 {
-                    return new();
+                    return null;
                 }
             }
 
@@ -472,36 +480,39 @@ namespace InternetProg4.Controllers
             Console.WriteLine(url);
             // Make a GET request to the Spotify API with the search query
             var response = await client.GetAsync(url);
+            Console.WriteLine($"Response Status Code: {response.StatusCode}");
             if (!response.IsSuccessStatusCode)
             {
                 // Handle errors, return null or throw exception
                 var errorContent = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"Error: {errorContent}");
+                Console.WriteLine($"Search Error: {errorContent}");
                 return null;
             }
 
             var json = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
 
-            var spotifyTracks = new List<SpotifyTrack>();
+            // Safely get the items array
+            var items = doc.RootElement.GetProperty("tracks").GetProperty("items");
 
-            // Extract relevant data from each track
-            foreach (var item in doc.RootElement.GetProperty("tracks").GetProperty("items").EnumerateArray())
+            if (items.GetArrayLength() == 0)
             {
-                var searchTrack = item;
-
-                // id, title, artists, albumname, duration
-                spotifyTracks.Add(new SpotifyTrack
-                {
-                    Id = searchTrack.GetProperty("id").GetString(),
-                    Title = searchTrack.GetProperty("name").GetString(),
-                    Artist = searchTrack.GetProperty("artists")[0].GetProperty("name").GetString(),
-                    AlbumName = searchTrack.GetProperty("album").GetProperty("name").GetString(),
-                    Duration = searchTrack.GetProperty("duration_ms").GetInt32(),
-
-                });
+                // Spotify returned no tracks
+                return null;
             }
-            return spotifyTracks[0];
+
+            var item = items[0];
+
+            var trackResult = new SpotifyTrack
+            {
+                Id = item.GetProperty("id").GetString(),
+                Title = item.GetProperty("name").GetString(),
+                Artist = item.GetProperty("artists")[0].GetProperty("name").GetString(),
+                AlbumName = item.GetProperty("album").GetProperty("name").GetString(),
+                Duration = item.GetProperty("duration_ms").GetInt32()
+            };
+
+            return trackResult;
 
 
         }

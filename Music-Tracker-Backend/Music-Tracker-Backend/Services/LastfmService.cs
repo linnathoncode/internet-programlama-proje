@@ -92,6 +92,8 @@ namespace Music_Tracker_Backend.Services
                 lastfmTrack.SpotifyId = spotifyTrack.Id;
                 lastfmTrack.Duration = spotifyTrack.Duration;
 
+
+
                 return lastfmTrack;
             }
             catch (Exception ex)
@@ -125,8 +127,12 @@ namespace Music_Tracker_Backend.Services
 
                 List<LastfmTrack> similarTracks = new List<LastfmTrack>();
 
+                //debug
+                int i = 0;
+
                 foreach(var trackElement in doc.RootElement.GetProperty("similartracks").GetProperty("track").EnumerateArray())
                 {
+                    
                     LastfmTrack track = new LastfmTrack();
 
                     track.Mbid = trackElement.TryGetProperty("mbid", out var mbidProp) ? mbidProp.GetString() : null;
@@ -153,6 +159,8 @@ namespace Music_Tracker_Backend.Services
                             : new List<CoverImage>()
                     };
                     track.Genres = new List<string>(); // Not provided in this response
+                    Console.WriteLine($"Similar Track Number {i}: {track.Mbid}");
+                    i++;
                     similarTracks.Add(track);
                 }
 
