@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using Music_Tracker_Backend.Services;
 using System.Net.Http;
+using static Google.Rpc.Context.AttributeContext.Types;
 
 namespace InternetProg4.Controllers
 {
@@ -40,7 +41,7 @@ namespace InternetProg4.Controllers
         [HttpGet("login")]
         public IActionResult Login()
         {
-            var scopes = "user-read-recently-played"; // permissions requested
+            var scopes = "user-read-recently-played playlist-modify-public playlist-modify-private"; // permissions requested
             var authUrl = $"https://accounts.spotify.com/authorize" +
                 $"?response_type=code" +
                 $"&client_id={ClientId}" +
@@ -429,6 +430,103 @@ namespace InternetProg4.Controllers
 
             return Ok(lastfmTracks); // Return the updated Last.fm tracks with Spotify IDs
         }
+
+        // ────────────────────────────────────────────────────────────────
+        // 8 - Generate Playlists
+        // ────────────────────────────────────────────────────────────────
+        [Authorize]
+        [HttpPost("generate-spotify-playlist")]
+        public async Task<IActionResult> GenerateSpotifyPlaylist([FromBody] PlaylistInfo playlistInfo)
+        {
+
+            if (playlistInfo == null)
+                return BadRequest("No tracks provided.");
+
+            // Extract playlist metadata from the first item
+            var playlistName = string.IsNullOrWhiteSpace(playlistInfo.PlaylistName) ? "Generated Playlist" : playlistInfo.PlaylistName;
+            var playlistDescription = playlistInfo.Description ?? "Created with Music Tracker";
+            var isPublic = playlistInfo?.IsPublic ?? false;
+
+            /*
+            // Extract track URIs from all items
+            var trackUris = tracks
+                .Where(t => !string.IsNullOrWhiteSpace(t.Id))
+                .Select(t => $"spotify:track:{t.Id}")
+                .ToList();
+
+            if (trackUris.Count == 0)
+                return BadRequest("No valid Spotify track IDs provided.");
+            */
+
+            // Get claims from jwt token
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized("User ID not found in token.");
+
+            // Get user information
+            var user = await _databaseService.GetSpotifyUserAsync(userId);
+            if (user == null || string.IsNullOrEmpty(user.SpotifyToken.AccessToken))
+            {
+                return Unauthorized("Spotify access token not found for user.");
+            }
+            var accessToken = user.SpotifyToken.AccessToken;
+
+            // Check if access token still valid
+            // If expired refresh it with refresh token
+            if (user.SpotifyToken.IsExpired())
+            {
+                var newAccesToken = await RefreshSpotifyAccessToken(user.SpotifyToken.RefreshToken);
+                if (newAccesToken != null)
+                {
+                    user.SpotifyToken.AccessToken = newAccesToken;
+                    await _databaseService.AddOrUpdateUserAsync(user);
+                    accessToken = newAccesToken;
+                }
+                else
+                {
+                    return Unauthorized("Unable to refresh access token");
+                }
+            }
+
+            var client = _httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+            // First create the playlist 
+            var createPlaylistPayload = new
+            {
+                name = playlistName,
+                description = playlistDescription,
+                @public = isPublic
+            };
+
+            var url = $"https://api.spotify.com/v1/users/{userId}/playlists";
+
+            var createPlaylistResponse = await client.PostAsJsonAsync(url, createPlaylistPayload);
+
+            /*
+            var json = await createPlaylistResponse.Content.ReadAsStringAsync();
+            Console.Write($"Spotify Response: {json}");
+            */
+
+            if (!createPlaylistResponse.IsSuccessStatusCode)
+                return StatusCode((int)createPlaylistResponse.StatusCode, "Failed to create Spotify playlist.");
+
+
+            // Get playlist Id
+            var playlistContent = await createPlaylistResponse.Content.ReadAsStringAsync();
+            var playlistJson = JsonDocument.Parse(playlistContent);
+            var playlistId = playlistJson.RootElement.GetProperty("id").GetString();
+
+            return Ok(new
+            {
+                message = "Playlist created successfully!",
+                playlistId,
+                playlistUrl = playlistJson.RootElement.GetProperty("external_urls").GetProperty("spotify").GetString()
+            });
+
+            // Add items to the playlist
+        }
+
         // ────────────────────────────────────────────────────────────────
         // Helper Method - Search for song
         // ────────────────────────────────────────────────────────────────
