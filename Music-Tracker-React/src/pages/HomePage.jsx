@@ -17,6 +17,9 @@ function HomePage() {
   const [recentListensLimit, setRecentListensLimit] = useState(10);
   const [fetchingRecentListens, setFetchingRecentListens] = useState(false);
 
+  // State for controlling sidebar collapse
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+
   // --- Handle Logout ---
   const handleLogout = async () => {
     try {
@@ -212,15 +215,20 @@ function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary via-secondary to-black text-white font-inter selection:bg-accent selection:text-white relative">
+    <div className="min-h-screen bg-gradient-to-br from-primary via-secondary to-black text-white font-inter selection:bg-accent selection:text-white relative flex">
       {/* Noise Overlay */}
       <div className="bg-[url('../assets/broken-noise.png')] bg-repeat mix-blend-screen absolute inset-0 opacity-100 z-0" />
 
       {/* Sidebar Component */}
-      <Sidebar userInfo={userInfo} onLogout={handleLogout} />
+      <Sidebar
+        userInfo={userInfo}
+        onLogout={handleLogout}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      />
 
       {/* Main Content */}
-      <main className="relative z-10 p-6 md:p-10 md:ml-64 min-w-0">
+      <main className="relative z-10 p-6 md:p-10 flex-1 min-w-0">
         <h1 className="text-3xl md:text-4xl font-bold mb-8 drop-shadow-lg">
           Welcome
           {userInfo?.display_name
