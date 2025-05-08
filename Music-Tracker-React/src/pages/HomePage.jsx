@@ -65,7 +65,7 @@ function HomePage() {
     setTracks([]); // Clear previous tracks while fetching new ones
     try {
       const data = await apiClient.getRecentListens(recentListensLimit);
-
+      // console.log("Fetched recent listens data:", data);
       // Map fetched data to add initial UI state properties for each track
       const tracksWithUIState = data.map((track) => ({
         ...track, // Keep all original track data
@@ -217,7 +217,7 @@ function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary via-secondary to-black text-white font-inter selection:bg-accent selection:text-white relative flex">
       {/* Noise Overlay */}
-      <div className="bg-[url('../assets/broken-noise.png')] bg-repeat mix-blend-screen absolute inset-0 opacity-100 z-0" />
+      <div className="bg-[url('../assets/broken-noise.png')] bg-repeat mix-blend-screen absolute inset-0 opacity-50 z-0" />
 
       {/* Sidebar Component */}
       <Sidebar

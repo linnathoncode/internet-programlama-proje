@@ -22,7 +22,7 @@ function LoginPage() {
 
       {/* Gradient Background */}
       <div className="absolute inset-0 z-0 bg-gradient-to-br from-primary via-secondary to-black" />
-      <div className="absolute inset-0 z-0 bg-[url('../assets/broken-noise.png')] bg-repeat opacity-100 mix-blend-screen" />
+      <div className="absolute inset-0 z-0 bg-[url('../assets/broken-noise.png')] bg-repeat opacity-50 mix-blend-screen" />
 
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center justify-center h-full px-4 text-center">

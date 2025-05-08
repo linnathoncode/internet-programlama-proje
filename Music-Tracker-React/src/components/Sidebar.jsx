@@ -30,7 +30,7 @@ const Sidebar = ({ userInfo, onLogout, isCollapsed, onToggleCollapse }) => {
 
   return (
     <aside
-      className={`h-screen z-20 ${sidebarWidthClass} ${sidebarPaddingClass} border-r border-white/10 bg-primary backdrop-blur-md hidden md:flex flex-col shadow-xl shadow-primary/40 rounded-lg transition-all duration-300 ease-in-out`}
+      className={`sticky left-0 top-0 h-screen z-20 ${sidebarWidthClass} ${sidebarPaddingClass} border-r border-white/10 bg-primary backdrop-blur-md hidden md:flex flex-col shadow-xl shadow-primary/40 rounded-lg transition-all duration-300 ease-in-out`}
     >
       {/* Toggle Button */}
       <div
