@@ -201,7 +201,7 @@ namespace InternetProg4.Controllers
             foreach (var item in doc.RootElement.GetProperty("items").EnumerateArray())
             {
                 var track = item.GetProperty("track");
-
+                Console.WriteLine($"Track Played At:{item.GetProperty("played_at").GetString()}");
 
                 // id, title, artists, albumname, duration
                 spotifyTracks.Add(new SpotifyTrack
