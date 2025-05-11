@@ -499,9 +499,9 @@ namespace InternetProg4.Controllers
                 @public = isPublic
             };
 
-            var url = $"https://api.spotify.com/v1/users/{userId}/playlists";
+            var playlistUrl = $"https://api.spotify.com/v1/users/{userId}/playlists";
 
-            var createPlaylistResponse = await client.PostAsJsonAsync(url, createPlaylistPayload);
+            var createPlaylistResponse = await client.PostAsJsonAsync(playlistUrl, createPlaylistPayload);
 
             /*
             var json = await createPlaylistResponse.Content.ReadAsStringAsync();
@@ -517,6 +517,29 @@ namespace InternetProg4.Controllers
             var playlistJson = JsonDocument.Parse(playlistContent);
             var playlistId = playlistJson.RootElement.GetProperty("id").GetString();
 
+            // Add items to the playlist
+            if(playlistId == null)
+            {
+                return StatusCode((int)createPlaylistResponse.StatusCode, "Failed to get Spotify playlist ID.");
+
+            }
+            var addItemToPlaylistUrl = $"https://api.spotify.com/v1/playlists/{playlistId}/tracks";
+
+
+            var addItemsToPlaylistPayload = new
+            {
+                uris = playlistInfo.TrackIds.Select(id => $"spotify:track:{id}").ToList(),
+                position = 0
+
+            };
+
+            var addItemToPlaylistResponse = await client.PostAsJsonAsync(addItemToPlaylistUrl, addItemsToPlaylistPayload);
+
+            if (!addItemToPlaylistResponse.IsSuccessStatusCode)
+            {
+                return StatusCode((int)createPlaylistResponse.StatusCode, "Failed add tracks to Spotify playlist.");
+            }
+
             return Ok(new
             {
                 message = "Playlist created successfully!",
@@ -524,7 +547,8 @@ namespace InternetProg4.Controllers
                 playlistUrl = playlistJson.RootElement.GetProperty("external_urls").GetProperty("spotify").GetString()
             });
 
-            // Add items to the playlist
+
+
         }
 
         // ────────────────────────────────────────────────────────────────

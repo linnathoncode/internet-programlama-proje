@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
+import PlaylistBar from "../components/PlaylistBar";
 import RecentListensControls from "../components/RecentListensControls";
 import TrackItem from "../components/TrackItem";
 import * as apiClient from "../services/apiClient";
@@ -20,6 +21,12 @@ function HomePage() {
   // State for controlling sidebar collapse
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
 
+  // Playlist States
+  const [playlistTracks, setPlaylistTracks] = useState([]);
+  const [playlistName, setPlaylistName] = useState("New Playlist");
+  const [playlistDescription, setPlaylistDescription] = useState("");
+  const [creatingPlaylist, setCreatingPlaylist] = useState(false);
+
   // --- Handle Logout ---
   const handleLogout = async () => {
     try {
@@ -36,6 +43,7 @@ function HomePage() {
     const checkAuthAndFetchUser = async () => {
       try {
         const authStatus = await apiClient.getAuthStatus();
+        console.log("Auth Status", authStatus);
         if (!authStatus || !authStatus.loggedIn) {
           navigate("/login");
           return;
@@ -205,6 +213,87 @@ function HomePage() {
     }
   };
 
+  // Playlist Handlers
+  const handleAddTrackToPlaylist = (track) => {
+    if (!track || !track.spotifyId) {
+      console.error("Cannot add track to playlist: Missing Spotify ID.");
+      alert("Failed to add track: Missing Spotify ID.");
+      return;
+    }
+
+    const isAlreadyPlaylist = playlistTracks.some(
+      (item) => item.spotifyId === track.spotifyId
+    );
+    if (isAlreadyPlaylist) {
+      console.warn("Track already in playlist:", track);
+      return;
+    }
+
+    // Add the track to the playlist state
+    setPlaylistTracks((prevTracks) => [
+      ...prevTracks,
+      {
+        spotifyId: track.spotifyId,
+        title: track.title,
+        artist: track.artist?.name || track.artist?.title,
+        album: track.album.title,
+      },
+    ]);
+
+    console.log("Added track to playlist", track);
+  };
+
+  const handleRemoveTrackFromPlaylist = (trackId) => {
+    setPlaylistTracks((prevTracks) =>
+      prevTracks.filter((track) => track.spotifyId !== trackId)
+    );
+    console.log("Removed track from playlist with ID", trackId);
+  };
+
+  const handleCreatePlaylist = async () => {
+    if (playlistTracks.length === 0) {
+      alert("No track in playlist!");
+      return;
+    }
+
+    const trackIds = playlistTracks
+      .map((track) => track.spotifyId)
+      .filter(Boolean); // Filter for no nulls
+
+    if (trackIds === 0) {
+      alert("No valid Spotify track IDs found!");
+      return;
+    }
+
+    setCreatingPlaylist(true);
+    try {
+      const playlistData = {
+        track_ids: trackIds,
+        playlistName: playlistName,
+        description: playlistDescription,
+        is_public: true, // Add toggle for this later
+      };
+
+      const response = await apiClient.createPlaylist(playlistData);
+
+      console.log("Playlist created successfully:", response);
+
+      // Clear states
+      setPlaylistTracks([]);
+      setPlaylistName("New Playlist");
+      setPlaylistDescription("");
+    } catch (err) {
+      console.error("Error creating playlist", err.message);
+      alert(
+        `Failed to create playlist: ${
+          err.message || "An unknown error occurred"
+        }`
+      );
+    } finally {
+      setCreatingPlaylist(false);
+    }
+  };
+
   // Show a full-page loading indicator initially
   if (loading) {
     return (
@@ -260,11 +349,22 @@ function HomePage() {
                 onToggleOpen={handleTrackClick} // Pass handler down
                 onSimilarLimitChange={handleSimilarLimitChange} // Pass handler down
                 onFetchSimilar={handleFetchSimilarTracks} // Pass handler down
+                onAddTrackToPlaylist={handleAddTrackToPlaylist}
               />
             ))}
           </ul>
         )}
       </main>
+      <PlaylistBar
+        playlistTracks={playlistTracks}
+        playlistName={playlistName}
+        playlistDescription={playlistDescription}
+        onNameChange={setPlaylistName} // Pass state setter
+        onDescriptionChange={setPlaylistDescription} // Pass state setter
+        onRemoveTrack={handleRemoveTrackFromPlaylist} // Pass remove handler
+        onCreatePlaylist={handleCreatePlaylist} // Pass create handler
+        creatingPlaylist={creatingPlaylist} // Pass loading state
+      />
     </div>
   );
 }

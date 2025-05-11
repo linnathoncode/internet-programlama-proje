@@ -1,5 +1,10 @@
+// src/components/TrackItem.jsx
 import React from "react";
 import Spinner from "./Spinner"; // Assuming Spinner is in the same components directory
+
+// Import Add icon
+import { FaPlus } from 'react-icons/fa'; // Example plus icon
+
 
 const TrackItem = ({
   track, // The track object including UI state (isOpen, isLoadingSimilar, etc.)
@@ -7,6 +12,7 @@ const TrackItem = ({
   onToggleOpen, // Callback from parent to toggle open state for this track
   onSimilarLimitChange, // Callback from parent to change similar limit for this track
   onFetchSimilar, // Callback from parent to fetch similar tracks for this track
+  onAddTrackToPlaylist, // NEW: Callback from parent to add a track to the playlist
 }) => {
   // Destructure UI state from the track object
   const {
@@ -19,6 +25,7 @@ const TrackItem = ({
     similarTracksLimit,
     similarTracksError,
     mbid, // Pass mbid for similar tracks fetch
+    spotifyId // Make sure you have spotifyId or spotifyUri on the track object!
   } = track;
 
   // Handle click on the main track item
@@ -40,6 +47,24 @@ const TrackItem = ({
       mbid: mbid,
     });
   };
+
+  // NEW: Handle adding a similar track to the playlist
+  const handleAddSimilarTrack = (similarTrack) => {
+      // Call the parent handler, passing the similar track data
+      // Ensure similarTrack object has necessary info (at least spotifyId/Uri)
+      if (!similarTrack.spotifyId && !similarTrack.spotifyUri) {
+           console.warn("Cannot add similar track: Missing Spotify ID or URI", similarTrack);
+           alert("Cannot add track: Missing Spotify info.");
+           return;
+      }
+      // Prefer spotifyId if available, otherwise use spotifyUri if that's how your backend works
+      const trackToAdd = {
+          ...similarTrack, // Pass all info initially
+          spotifyId: similarTrack.spotifyId || similarTrack.spotifyUri.split(':').pop(), // Extract ID if only URI is available
+      };
+      onAddTrackToPlaylist(trackToAdd);
+  }
+
 
   const artistName = artist?.name || artist?.title; // Get artist name consistently
 
@@ -156,44 +181,27 @@ const TrackItem = ({
                 </h4>
                 <ul className="space-y-2">
                   {similarTracks.map((similarTrack, similarIndex) => (
+                    // Make similar track items clickable to add to playlist
                     <li
-                      key={similarIndex}
-                      className="bg-white/5 border border-white/10 rounded-lg p-3 flex items-center gap-3 text-sm"
+                       key={similarIndex} // Use index as key for this list
+                       onClick={() => handleAddSimilarTrack(similarTrack)} // Add click handler
+                       className="bg-white/5 border border-white/10 rounded-lg p-3 flex items-center gap-3 text-sm cursor-pointer hover:bg-white/10 transition-colors duration-200" // Add cursor and hover effect
                     >
-                      {/* You can uncomment and adapt album art here if needed */}
-                      {/* <div className="w-12 h-12 bg-gray-300/10 rounded-md overflow-hidden flex items-center justify-center flex-shrink-0">
-                      {similarTrack.album?.coverImages?.length > 0 &&
-                      (similarTrack.album.coverImages[1]?.url ||
-                        similarTrack.album.coverImages[0]?.url) ? (
-                        <img
-                          src={
-                            similarTrack.album.coverImages[1]?.url ||
-                            similarTrack.album.coverImages[0]?.url
-                          }
-                          alt={similarTrack.album?.title || "Album Cover"}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src =
-                              "https://via.placeholder.com/48x48.png?text=No+Cover";
-                          }}
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gray-400/30 flex items-center justify-center">
-                          <span className="text-gray-700 text-xs text-center px-1">
-                            No Cover
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    */}
-                      <div>
-                        <p className="font-medium">{similarTrack.title}</p>
-                        <p className="text-xs text-gray-400">
-                          {similarTrack.artist?.name ||
-                            similarTrack.artist?.title}
-                        </p>
-                      </div>
+                        {/* Icon or placeholder could go here */}
+                        {/* <div className="w-6 h-6 bg-gray-300/10 rounded-sm flex items-center justify-center text-gray-400"><FaPlus size={12} /></div> */}
+                         <div>
+                            <p className="font-medium">{similarTrack.title}</p>
+                            <p className="text-xs text-gray-400">
+                                {similarTrack.artist?.name ||
+                                similarTrack.artist?.title}
+                            </p>
+                         </div>
+                          {/* Optional: Add explicit + button */}
+                          <div className="ml-auto flex-shrink-0">
+                              <button className="p-1 rounded-full text-accent hover:text-accent-dark" title="Add to playlist">
+                                  <FaPlus size={16} />
+                              </button>
+                          </div>
                     </li>
                   ))}
                 </ul>
