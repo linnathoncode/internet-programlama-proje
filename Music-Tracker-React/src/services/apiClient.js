@@ -45,7 +45,7 @@ const fetchApi = async (endpoint, options = {}) => {
 
     return await response.json();
   } catch (error) {
-    console.error("API call failed:", error); // Rethrow to be handled by the calling component/hook
+    console.error("API call failed:", error.message); // Rethrow to be handled by the calling component/hook
 
     throw error;
   }
@@ -57,6 +57,15 @@ export const getAuthStatus = () => {
 
 export const getUserInfo = () => {
   return fetchApi("/user-info");
+};
+
+export const getListeningHistory = (limit = 10, startAfter = null) => {
+  const query =
+    startAfter !== null
+      ? `/get-listening-history?limit=${limit}&startAfter=${startAfter}`
+      : `/get-listening-history?limit=${limit}`;
+  console.log(query);
+  return fetchApi(query);
 };
 
 export const getRecentListens = (limit = 10) => {

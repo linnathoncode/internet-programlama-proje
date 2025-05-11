@@ -1,5 +1,6 @@
 ﻿using Google.Cloud.Firestore;
 using Music_Tracker_Backend.Models;
+using System.Collections.Generic;
 
 namespace Music_Tracker_Backend.Services
 {
@@ -133,6 +134,108 @@ namespace Music_Tracker_Backend.Services
             }
         }
 
+        public async Task AddListeningHistoryAsync(string userId, ListeningHistoryEntry entry)
+        {
+            try
+            {
+                var historyRef = _firestore
+                    .Collection("users")
+                    .Document(userId)
+                    .Collection("listening_history");
+
+                var docId = $"{entry.TrackId}_{entry.Timestamp}";
+                await historyRef.Document(docId).SetAsync(entry);
+                Console.WriteLine("Added To Listening History");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error at AddListeningHistory: {ex.Message}");
+                throw new Exception("Failed to add track to the listening history.", ex);
+            }
+        }
+
+        public async Task<bool> CheckIfHistoryEntryExists(string userId, string trackId, long timestamp)
+        {
+            try
+            {
+                var docId = $"{trackId}_{timestamp}";
+                var docRef = _firestore
+                        .Collection("users")
+                        .Document(userId)
+                        .Collection("listening_history")
+                        .Document(trackId);
+
+                var snapshot = await docRef.GetSnapshotAsync();
+                return snapshot.Exists;
+            }catch (Exception ex)
+            {
+                Console.WriteLine($"Error at CheckIfHistoryEntryExists: {ex.Message}");
+                throw new Exception("Failed to check if listening history entry exists.", ex);
+            }
+        }
+
+        public async Task<List<ListeningHistoryEntry>> GetListeningHistoryEntries(string userId, int limit, long? startAfter)
+        {
+            try
+            {
+                var historyRef = _firestore
+                   .Collection("users")
+                   .Document(userId)
+                   .Collection("listening_history");
+
+                Query query = historyRef
+                        .OrderByDescending("Timestamp")
+                        .Limit(limit);
+
+                if (startAfter.HasValue) query = query.StartAfter(startAfter.Value);
+
+                var snapshot = await query.GetSnapshotAsync();
+                return snapshot.Documents
+                    .Select(doc => doc.ConvertTo<ListeningHistoryEntry>())
+                    .ToList();
+
+
+            }catch(Exception ex)
+            {
+                Console.WriteLine($"Error at GetListeningHistoryEntries: {ex.Message}");
+                throw new Exception("Failed to get listening history entries.", ex);
+            }
+           
+        }
+
+        public async Task<List<TrackWithTimestampDto>> GetListeningHistoryTracksAsync(string userId, int limit, long? startAfter)
+        {
+            try
+            {
+                var entries = await GetListeningHistoryEntries(userId, limit, startAfter);
+                var result = new List<TrackWithTimestampDto>();
+
+                foreach (var entry in entries)
+                {
+                    var (found, track) = await GetTrackAsync(entry.TrackId);
+                    if (found && track != null)
+                    {
+                        result.Add(new TrackWithTimestampDto
+                        {
+                            Track = track,
+                            Timestamp = entry.Timestamp
+                        });
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Track with ID {entry.TrackId} not found in database.");
+                    }
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error at GetListeningHistoryTracksAsync: {ex.Message}");
+                throw new Exception("Failed to get full listening history tracks.", ex);
+            }
+        }
+
     }
 }
 
@@ -145,5 +248,9 @@ public interface IDatabaseService
     Task<(bool,LastfmTrack)> GetTrackAsync(string spotifyId);
 
     Task UpdateTrackAsync(LastfmTrack track);
+    Task<bool> CheckIfHistoryEntryExists(string userId, string trackId, long timestamp);
+    Task AddListeningHistoryAsync(string userId, ListeningHistoryEntry entry);
+    Task<List<ListeningHistoryEntry>> GetListeningHistoryEntries(string userId, int limit, long? startAfter);
+    Task<List<TrackWithTimestampDto>> GetListeningHistoryTracksAsync(string userId, int limit, long? startAfter);
 
 }

@@ -56,7 +56,9 @@ function HomePage() {
         // TO-DO
         // Optionally fetch recent listens immediately after successful auth+user fetch
         // handleFetchRecentListens();
-        setFetchingRecentListens(false); // Ensure this is false if not auto-fetching
+
+        handleFetchListeningHistory();
+        // setFetchingRecentListens(false); // Ensure this is false if not auto-fetching
       } catch (err) {
         console.error("Auth check or user info fetch failed:", err);
         // If auth fails, redirect to login
@@ -67,24 +69,27 @@ function HomePage() {
     checkAuthAndFetchUser();
   }, [navigate]);
 
-  // --- Fetch Recent Listens (Manual Trigger) ---
-  const handleFetchRecentListens = async () => {
+  // --- Fetch Listening History ---
+  const handleFetchListeningHistory = async (limit = 10, startAfter = null) => {
     setFetchingRecentListens(true);
     setTracks([]); // Clear previous tracks while fetching new ones
+
     try {
-      const data = await apiClient.getRecentListens(recentListensLimit);
-      // console.log("Fetched recent listens data:", data);
-      // Map fetched data to add initial UI state properties for each track
-      const tracksWithUIState = data.map((track) => ({
-        ...track, // Keep all original track data
-        isOpen: false, // Initially closed
-        isLoadingSimilar: false, // Not loading similar tracks initially
-        similarTracks: [], // No similar tracks fetched initially
-        similarTracksLimit: 10, // Default limit for similar tracks
-        similarTracksError: null, // No error initially
+      const data = await apiClient.getListeningHistory(limit, startAfter);
+
+      // Map the data to add the necessary UI state properties and ensure proper timestamp handling
+      const tracksWithUIState = data.map((item) => ({
+        ...item.track, // Correctly spread the nested 'track' object (lowercase t)
+        timestamp: item.timestamp, // Correctly get the top-level 'timestamp' (lowercase t)
+        isOpen: false,
+        isLoadingSimilar: false,
+        similarTracks: [],
+        similarTracksLimit: 10,
+        similarTracksError: null,
       }));
 
-      setTracks(tracksWithUIState);
+      setTracks(tracksWithUIState); // Set the tracks with UI state
+      console.log(tracksWithUIState);
     } catch (err) {
       console.error("Error fetching recent listens", err);
       alert("Failed to fetch recent listens.");
@@ -94,6 +99,33 @@ function HomePage() {
     }
   };
 
+  // --- Fetch Recent Listens (Manual Trigger) ---
+  const handleFetchRecentListens = async () => {
+    setFetchingRecentListens(true);
+    setTracks([]); // Clear previous tracks while fetching new ones
+    try {
+      const data = await apiClient.getRecentListens(recentListensLimit);
+
+      // Map the fetched data to add UI state properties for each track
+      const tracksWithUIState = data.map((item) => ({
+        ...item.track, // Correctly spread the nested 'track' object (lowercase t)
+        timestamp: item.timestamp, // Correctly get the top-level 'timestamp' (lowercase t)
+        isOpen: false,
+        isLoadingSimilar: false,
+        similarTracks: [],
+        similarTracksLimit: 10,
+        similarTracksError: null,
+      }));
+
+      setTracks(tracksWithUIState); // Set the tracks with UI state
+    } catch (err) {
+      console.error("Error fetching recent listens", err);
+      alert("Failed to fetch recent listens.");
+      setTracks([]); // Clear tracks or set to empty array on error
+    } finally {
+      setFetchingRecentListens(false);
+    }
+  };
   // --- Handle Track Tile Click (Toggle Options) ---
   // This function now lives in the parent (HomePage) to update the state array
   const handleTrackClick = (index) => {
@@ -355,6 +387,7 @@ function HomePage() {
           </ul>
         )}
       </main>
+
       <PlaylistBar
         playlistTracks={playlistTracks}
         playlistName={playlistName}

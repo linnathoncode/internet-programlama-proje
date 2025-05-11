@@ -8,7 +8,7 @@ namespace Music_Tracker_Backend.Models
         public string Artist { get; set; }
         public string AlbumName { get; set; }
         public int Duration { get; set; }
-       public DateTime PlayedAt { get; set }
+       public DateTime PlayedAt { get; set; }
 
     }
 }

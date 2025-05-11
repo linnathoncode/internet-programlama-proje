@@ -9,6 +9,7 @@ using System.Security.Claims;
 using Music_Tracker_Backend.Services;
 using System.Net.Http;
 using static Google.Rpc.Context.AttributeContext.Types;
+using Microsoft.Extensions.Configuration.UserSecrets;
 
 namespace InternetProg4.Controllers
 {
@@ -191,7 +192,6 @@ namespace InternetProg4.Controllers
                 return StatusCode((int)response.StatusCode, "Failed to get recently played tracks");
 
 
-
             var json = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
 
@@ -201,9 +201,13 @@ namespace InternetProg4.Controllers
             foreach (var item in doc.RootElement.GetProperty("items").EnumerateArray())
             {
                 var track = item.GetProperty("track");
-                Console.WriteLine($"Track Played At:{item.GetProperty("played_at").GetString()}");
+                Console.WriteLine($"Track Played At: {item.GetProperty("played_at").GetString()}");
 
-                // id, title, artists, albumname, duration
+                // Convert played_at to Unix timestamp (milliseconds)
+                var playedAt = item.GetProperty("played_at").GetDateTime();
+                long timestamp = new DateTimeOffset(playedAt).ToUnixTimeMilliseconds();
+
+                // Add the track to the list
                 spotifyTracks.Add(new SpotifyTrack
                 {
                     Id = track.GetProperty("id").GetString(),
@@ -211,43 +215,72 @@ namespace InternetProg4.Controllers
                     Artist = track.GetProperty("artists")[0].GetProperty("name").GetString(),
                     AlbumName = track.GetProperty("album").GetProperty("name").GetString(),
                     Duration = track.GetProperty("duration_ms").GetInt32(),
-                    //TrackName = track.GetProperty("name").GetString(),
-                    //ArtistName = track.GetProperty("artists")[0].GetProperty("name").GetString(),
-                    //AlbumName = track.GetProperty("album").GetProperty("name").GetString(),
-                    //PlayedAt = item.GetProperty("played_at").GetDateTime(),
-                }) ;
+                    PlayedAt = playedAt, // Store the DateTime for use later if needed
+                });
             }
-            var LastfmTracks = new List<LastfmTrack>();
-            // Get Last.fm tracks
-            foreach (SpotifyTrack track in spotifyTracks)
+
+            var trackWithTimestampDtos = new List<TrackWithTimestampDto>();
+
+            // Map Spotify tracks to TrackWithTimestampDto and include the timestamp
+            foreach (var track in spotifyTracks)
             {
-                // Check if track exists in the database
                 var (found, lastfmTrack) = await _databaseService.GetTrackAsync(track.Id);
 
                 if (found)
                 {
-                    // If exists, add to the list and continue
-                    LastfmTracks.Add(lastfmTrack);
-                    continue;
-                }
-
-                // Track not found in database, fetch details from Last.fm API
-                lastfmTrack = await _lastfmService.GetLastfmTrackAsync(track);
-
-                if (lastfmTrack != null)
-                {
-                    // If track details were successfully retrieved, add to database and list
-                    await _databaseService.AddTrackAsync(lastfmTrack);
-                    LastfmTracks.Add(lastfmTrack);
+                    // If the track exists in the database, create a TrackWithTimestampDto
+                    trackWithTimestampDtos.Add(new TrackWithTimestampDto
+                    {
+                        Track = lastfmTrack, // Use the LastfmTrack object
+                        Timestamp = new DateTimeOffset(track.PlayedAt).ToUnixTimeMilliseconds() // Convert to Unix timestamp
+                    });
                 }
                 else
                 {
-                    // Handle the case where Last.fm API does not return a valid track (optional)
-                    Console.WriteLine($"Track with Spotify ID {track.Id} not found on Last.fm.");
+                    // If the track is not found in the database, fetch details from Last.fm API
+                    lastfmTrack = await _lastfmService.GetLastfmTrackAsync(track);
+
+                    if (lastfmTrack != null)
+                    {
+                        // Add track to the database and create a TrackWithTimestampDto
+                        await _databaseService.AddTrackAsync(lastfmTrack);
+                        trackWithTimestampDtos.Add(new TrackWithTimestampDto
+                        {
+                            Track = lastfmTrack,
+                            Timestamp = new DateTimeOffset(track.PlayedAt).ToUnixTimeMilliseconds()
+                        });
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Track with Spotify ID {track.Id} not found on Last.fm.");
+                    }
                 }
             }
 
-            return Ok(LastfmTracks); // return track list to frontend
+            // Return the list of TrackWithTimestampDto objects
+            return Ok(trackWithTimestampDtos);
+        }
+
+        // ────────────────────────────────────────────────────────────────
+        // Helper Method = Handle Listen History
+        // ────────────────────────────────────────────────────────────────
+        private async Task HandleListeningHistory(string userId, string trackId, DateTime playedAt)
+        {
+            // Convert datetime to timestamp
+            long timestamp = new DateTimeOffset(playedAt).ToUnixTimeMilliseconds();
+         
+            bool alreadyLogged = await _databaseService.CheckIfHistoryEntryExists(userId, trackId, timestamp);
+         
+            if (!alreadyLogged)
+            {
+
+                await _databaseService.AddListeningHistoryAsync(userId, new ListeningHistoryEntry
+                {
+                    TrackId = trackId,
+                    Timestamp = timestamp,
+                });
+            }
+            return;
         }
 
         // ────────────────────────────────────────────────────────────────
@@ -551,6 +584,28 @@ namespace InternetProg4.Controllers
 
         }
 
+        // ────────────────────────────────────────────────────────────────
+        // 9 - Get listening history
+        // ────────────────────────────────────────────────────────────────
+        [Authorize]
+        [HttpGet("get-listening-history")]
+        public async Task<IActionResult> GetListeningHistory([FromQuery] int limit = 10, [FromQuery] long? startAfter = null) // Unix timestamp for pagination)
+        {
+            // Get userId from the cookie
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized("User ID not found in token.");
+            try
+            {
+                var history = await _databaseService.GetListeningHistoryTracksAsync(userId, limit, startAfter);
+                Console.WriteLine(history);
+                return Ok(history);
+            }catch(Exception ex)
+            {
+                Console.WriteLine($"Error getting listening history: {ex.Message}");
+                return StatusCode(500, "Something went wrong");
+            }
+        }
         // ────────────────────────────────────────────────────────────────
         // Helper Method - Search for song
         // ────────────────────────────────────────────────────────────────
