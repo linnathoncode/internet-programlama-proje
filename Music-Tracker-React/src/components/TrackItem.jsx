@@ -96,11 +96,6 @@ const TrackItem = ({
               src={album.coverImages[1]?.url || album.coverImages[0]?.url}
               alt={album?.title || "Album Cover"}
               className="w-full h-full object-cover"
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src =
-                  "https://via.placeholder.com/64x64.png?text=No+Cover";
-              }}
             />
           ) : (
             <div className="w-full h-full bg-gray-400/30 flex items-center justify-center">

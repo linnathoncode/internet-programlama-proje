@@ -221,44 +221,36 @@ namespace InternetProg4.Controllers
 
             var trackWithTimestampDtos = new List<TrackWithTimestampDto>();
 
-            // Map Spotify tracks to TrackWithTimestampDto and include the timestamp
-            foreach (var track in spotifyTracks)
+            var trackIdList = spotifyTracks.Select(t => t.Id).ToList();
+            var knownTracks = await _databaseService.GetTracksAsync(trackIdList); // Dictionary<string, LastfmTrack>
+
+            var tasks = spotifyTracks.Select(async track =>
             {
-                var (found, lastfmTrack) = await _databaseService.GetTrackAsync(track.Id);
-
-                if (found)
+                if (!knownTracks.TryGetValue(track.Id, out var lastfmTrack))
                 {
-                    // If the track exists in the database, create a TrackWithTimestampDto
-                    trackWithTimestampDtos.Add(new TrackWithTimestampDto
-                    {
-                        Track = lastfmTrack, // Use the LastfmTrack object
-                        Timestamp = new DateTimeOffset(track.PlayedAt).ToUnixTimeMilliseconds() // Convert to Unix timestamp
-                    });
-                }
-                else
-                {
-                    // If the track is not found in the database, fetch details from Last.fm API
                     lastfmTrack = await _lastfmService.GetLastfmTrackAsync(track);
-
                     if (lastfmTrack != null)
                     {
-                        // Add track to the database and create a TrackWithTimestampDto
                         await _databaseService.AddTrackAsync(lastfmTrack);
-                        trackWithTimestampDtos.Add(new TrackWithTimestampDto
-                        {
-                            Track = lastfmTrack,
-                            Timestamp = new DateTimeOffset(track.PlayedAt).ToUnixTimeMilliseconds()
-                        });
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Track with Spotify ID {track.Id} not found on Last.fm.");
                     }
                 }
-            }
 
-            // Return the list of TrackWithTimestampDto objects
-            return Ok(trackWithTimestampDtos);
+                if (lastfmTrack != null)
+                {
+                    await HandleListeningHistory(userId, track.Id, track.PlayedAt);
+
+                    return new TrackWithTimestampDto
+                    {
+                        Track = lastfmTrack,
+                        Timestamp = new DateTimeOffset(track.PlayedAt).ToUnixTimeMilliseconds()
+                    };
+                }
+
+                return null;
+            });
+
+            var results = await Task.WhenAll(tasks);
+            return Ok(results.Where(r => r != null));
         }
 
         // ────────────────────────────────────────────────────────────────
@@ -436,33 +428,28 @@ namespace InternetProg4.Controllers
         [HttpGet("last-fm-get-similar")]
         public async Task<IActionResult> GetSimilarTracks([FromQuery] string? mbid, string? artist, string? track, int limit = 10)
         {
-            var lastfmTracks = await _lastfmService.GetSimilarTracksAsync(mbid: mbid, trackName: track, artistName: artist, limit: limit); ;
+            var lastfmTracks = await _lastfmService.GetSimilarTracksAsync(mbid: mbid, trackName: track, artistName: artist, limit: limit);
 
-  
-
-            // For each Last.fm track, search for the corresponding Spotify track and assign the Spotify ID
-            for (int i = 0; i < lastfmTracks.Count;)
+            var tasks = lastfmTracks.Select(async lastfmTrack =>
             {
-                var lastfmTrack = lastfmTracks[i];
-
                 var spotifyTrack = await SearchSpotifyForTrack(lastfmTrack.Artist?.Name, lastfmTrack.Title);
-
-                if (spotifyTrack != null && spotifyTrack.Id != null)
+                if (spotifyTrack?.Id != null)
                 {
                     lastfmTrack.SpotifyId = spotifyTrack.Id;
-                    Console.WriteLine($"Found Track Number {i}: {lastfmTrack.SpotifyId}");
-                    i++; // Only increment if not removing
+                    return lastfmTrack;
                 }
                 else
                 {
-                    Console.WriteLine($"Removed Track Number {i}: Id Not Found");
-                    lastfmTracks.RemoveAt(i); // Do not increment i if removing
+                    return null; // Mark for exclusion
                 }
-            }
+            });
 
+            var enrichedTracks = await Task.WhenAll(tasks);
 
-            return Ok(lastfmTracks); // Return the updated Last.fm tracks with Spotify IDs
+            // Filter out nulls
+            return Ok(enrichedTracks.Where(t => t != null));
         }
+
 
         // ────────────────────────────────────────────────────────────────
         // 8 - Generate Playlists

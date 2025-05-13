@@ -236,6 +236,17 @@ namespace Music_Tracker_Backend.Services
             }
         }
 
+        public async Task<Dictionary<string, LastfmTrack>> GetTracksAsync(List<string> spotifyTrackIds)
+        {
+            var snapshot = await _firestore.Collection("tracks")
+                .WhereIn("spotifyId", spotifyTrackIds)
+                .GetSnapshotAsync();
+
+            return snapshot.Documents.ToDictionary(
+                doc => doc.GetValue<string>("spotifyId"),
+                doc => doc.ConvertTo<LastfmTrack>());
+        }
+
     }
 }
 
@@ -252,5 +263,6 @@ public interface IDatabaseService
     Task AddListeningHistoryAsync(string userId, ListeningHistoryEntry entry);
     Task<List<ListeningHistoryEntry>> GetListeningHistoryEntries(string userId, int limit, long? startAfter);
     Task<List<TrackWithTimestampDto>> GetListeningHistoryTracksAsync(string userId, int limit, long? startAfter);
+    Task<Dictionary<string, LastfmTrack>> GetTracksAsync(List<string> ids);
 
 }
