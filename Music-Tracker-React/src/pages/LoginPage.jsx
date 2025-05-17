@@ -1,10 +1,9 @@
-// import React, { useState } from "react";
 import "./index.css";
-import noise from "../assets/broken-noise.png";
 
 function LoginPage() {
+  // Inside LoginPage function, before the return statement
   const handleLogin = () => {
-    window.location.href = "http://localhost:5017/api/Spotify/login"; // Redirects to your backend's /login
+    window.location.href = "http://localhost:5017/api/auth/login"; // Redirects to your backend's /login
   };
 
   return (

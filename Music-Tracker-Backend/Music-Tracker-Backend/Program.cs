@@ -35,6 +35,9 @@ builder.Services.AddSingleton<ILastfmService>(provider => new LastfmService(prov
 // Register FirestoreService
 builder.Services.AddSingleton< IDatabaseService, FirestoreService>();
 
+// Register Spotify Service
+builder.Services.AddScoped<ISpotifyService, SpotifyService>();
+
 // JWT
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddAuthentication(options =>

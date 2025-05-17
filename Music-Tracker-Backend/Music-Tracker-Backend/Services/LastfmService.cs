@@ -102,7 +102,6 @@ namespace Music_Tracker_Backend.Services
                 return new();
             }
         }
-
         public async Task<List<LastfmTrack>> GetSimilarTracksAsync(string? mbid, string? trackName, string? artistName, int limit)
         {
 

@@ -1,10 +1,11 @@
-const BASE_URL = "/api/spotify";
-
+const BASE_URL_SPOTIFY = "/api/spotify";
+const BASE_URL_AUTH = "/api/auth";
+const BASE_URL_LASTFM = "/api/lastfm";
 /**
  * Helper function to handle fetching and basic error checking
  */
-const fetchApi = async (endpoint, options = {}) => {
-  const url = `${BASE_URL}${endpoint}`;
+const fetchApi = async (endpoint, baseUrl, options = {}) => {
+  const url = `${baseUrl}${endpoint}`;
 
   try {
     const response = await fetch(url, {
@@ -51,31 +52,38 @@ const fetchApi = async (endpoint, options = {}) => {
   }
 };
 
+// /api/auth
 export const getAuthStatus = () => {
-  return fetchApi("/auth-status");
+  return fetchApi("/auth-status", BASE_URL_AUTH);
 };
-
+// /api/spotify
 export const getUserInfo = () => {
-  return fetchApi("/user-info");
+  return fetchApi("/user-info", BASE_URL_SPOTIFY);
 };
-
+// /api/spotify
 export const getListeningHistory = (limit = 10, startAfter = null) => {
   const query =
     startAfter !== null
       ? `/get-listening-history?limit=${limit}&startAfter=${startAfter}`
       : `/get-listening-history?limit=${limit}`;
   console.log(query);
-  return fetchApi(query);
+  return fetchApi(query, BASE_URL_SPOTIFY);
 };
-
+// /api/spotify
 export const getRecentListens = (limit = 10) => {
-  return fetchApi(`/recent?limit=${limit}`);
+  return fetchApi(`/recent?limit=${limit}`, BASE_URL_SPOTIFY);
 };
-
+// /api/auth
 export const logout = () => {
-  return fetchApi("/logout", { method: "POST" });
+  return fetchApi("/logout", BASE_URL_AUTH, { method: "POST" });
 };
 
+// // /api/auth
+// export const login = () => {
+//   return fetchApi("/login", BASE_URL_AUTH);
+// };
+
+// /api/lastfm
 export const getSimilarTracks = ({ artist, track, mbid, limit = 10 }) => {
   const queryParams = new URLSearchParams();
   if (artist) queryParams.append("artist", artist);
@@ -83,20 +91,10 @@ export const getSimilarTracks = ({ artist, track, mbid, limit = 10 }) => {
   if (mbid) queryParams.append("mbid", mbid);
   queryParams.append("limit", limit);
 
-  return fetchApi(`/last-fm-get-similar?${queryParams.toString()}`);
+  return fetchApi(`get-similar?${queryParams.toString()}`, BASE_URL_LASTFM);
 };
 
-/**
- * Creates a new Spotify playlist.
- * @param {object} playlistData - Object containing playlist details.
- * @param {string[]} playlistData.track_ids - Array of Spotify track IDs.
- * @param {string} playlistData.name - The name of the playlist.
- * @param {string} [playlistData.description=""] - The description of the playlist.
- * @param {boolean} [playlistData.is_public=true] - Whether the playlist should be public.
- * @returns {Promise<object|null>} - A promise that resolves with the created playlist object
- * or null if the API returns no content on success.
- */
-
+// /api/spotify
 export const createPlaylist = ({
   track_ids,
   playlistName,
@@ -112,7 +110,7 @@ export const createPlaylist = ({
   };
 
   // Post request
-  return fetchApi("/generate-spotify-playlist", {
+  return fetchApi("/generate-spotify-playlist", BASE_URL_SPOTIFY, {
     method: "POST",
     body: JSON.stringify(body),
     headers: {
