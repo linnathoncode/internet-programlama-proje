@@ -1,16 +1,18 @@
 import React from "react";
 import Spinner from "./Spinner";
+import { useAppContext } from "../context/AppContext";
+const PlaylistBar = () => {
+  const {
+    playlistTracks,
+    playlistName,
+    playlistDescription,
+    creatingPlaylist,
+    setPlaylistName,
+    setPlaylistDescription,
+    removeTrackFromPlaylist,
+    createPlaylist,
+  } = useAppContext();
 
-const PlaylistBar = ({
-  playlistTracks,
-  playlistName,
-  playlistDescription,
-  onNameChange,
-  onDescriptionChange,
-  onRemoveTrack,
-  onCreatePlaylist,
-  creatingPlaylist,
-}) => {
   return (
     // Fixed width, bg, border, etc. Adjust width (w-80) as needed.
     // Add min-w-0 to prevent shrinking below content size if needed, though w-80 implies fixed size.
@@ -31,7 +33,7 @@ const PlaylistBar = ({
           id="playlist-name"
           type="text"
           value={playlistName}
-          onChange={(e) => onNameChange(e.target.value)}
+          onChange={(e) => setPlaylistName(e.target.value)}
           className="w-full px-3 py-2 bg-primary border border-primary/20 rounded-md text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-accent focus:border-accent"
           placeholder="e.g., My Awesome Mix"
           disabled={creatingPlaylist}
@@ -49,7 +51,7 @@ const PlaylistBar = ({
         <textarea
           id="playlist-description"
           value={playlistDescription}
-          onChange={(e) => onDescriptionChange(e.target.value)}
+          onChange={(e) => setPlaylistDescription(e.target.value)}
           className="w-full px-3 py-2 bg-primary border border-primary/20 rounded-md text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-accent focus:border-accent h-24 resize-none"
           placeholder="Optional description"
           disabled={creatingPlaylist}
@@ -58,7 +60,7 @@ const PlaylistBar = ({
 
       {/* Create Playlist Button */}
       <button
-        onClick={onCreatePlaylist}
+        onClick={createPlaylist}
         disabled={playlistTracks.length === 0 || creatingPlaylist}
         className={`w-full px-6 py-2 bg-accent hover:bg-accent-dark text-black rounded-full shadow-lg transition duration-300 font-semibold flex items-center justify-center ${
           playlistTracks.length === 0 || creatingPlaylist
@@ -97,7 +99,7 @@ const PlaylistBar = ({
                   <p className="text-xs text-gray-400">{track.artist}</p>
                 </div>
                 <button
-                  onClick={() => onRemoveTrack(track.spotifyId)}
+                  onClick={() => removeTrackFromPlaylist(track.spotifyId)}
                   className="flex-shrink-0 p-1 text-red-400 hover:text-red-300 transition"
                   disabled={creatingPlaylist}
                   title="Remove track"

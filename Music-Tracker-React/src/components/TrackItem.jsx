@@ -1,48 +1,69 @@
 // src/components/TrackItem.jsx
 import React from "react";
-import Spinner from "./Spinner"; // Assuming Spinner is in the same components directory
-
-// Import Add icon
-import { FaPlus } from "react-icons/fa"; // Example plus icon
+import Spinner from "./Spinner";
+import { FaPlus } from "react-icons/fa";
 
 const TrackItem = ({
-  track, // The track object including UI state (isOpen, isLoadingSimilar, etc.) - now flattened
-  index, // The index is needed for the parent's update functions
-  onToggleOpen, // Callback from parent to toggle open state for this track
-  onSimilarLimitChange, // Callback from parent to change similar limit for this track
-  onFetchSimilar, // Callback from parent to fetch similar tracks for this track
-  onAddTrackToPlaylist, // NEW: Callback from parent to add a track to the playlist
+  track,
+  index,
+  onToggleOpen,
+  onSimilarLimitChange,
+  onFetchSimilar,
+  onAddTrackToPlaylist,
 }) => {
-  // Destructure UI state and track properties directly from the track prop
-  // as the parent component is flattening the data structure.
   const {
-    title, // Now directly on the 'track' prop
-    artist, // Now directly on the 'track' prop
-    album, // Now directly on the 'track' prop
-    spotifyId, // Now directly on the 'track' prop
-    mbid, // Now directly on the 'track' prop
-    timestamp, // Also directly on the 'track' prop
+    title,
+    artist,
+    album,
+    spotifyId,
+    mbid,
+    timestamp,
     isOpen,
     isLoadingSimilar,
     similarTracks,
     similarTracksLimit,
     similarTracksError,
-  } = track; // 'track' is the prop object
+    similarFetchAttempted,
+  } = track;
 
-  // Handle click on the main track item
+  // DEBUGGING
+  // console.log(`TrackItem ${index} (${title}):`, {
+  //   isOpen,
+  //   isLoadingSimilar,
+  //   similarFetchAttempted, // Log the new flag
+  //   similarTracks: similarTracks
+  //     ? `${similarTracks.length} tracks`
+  //     : similarTracks,
+  //   similarTracksError,
+  //   similarTracksLimit,
+  //   spotifyId,
+  //   mbid,
+  //   artist: artist?.name || artist?.title,
+  // });
+  // if (
+  //   isOpen &&
+  //   !isLoadingSimilar &&
+  //   similarTracks &&
+  //   similarTracks.length > 0
+  // ) {
+  //   console.log(`TrackItem ${index} Similar Tracks Data:`, similarTracks);
+  // }
+  // END OF DEBUGGING
+
   const handleItemClick = () => {
-    onToggleOpen(index); // Notify parent to toggle state
+    onToggleOpen(index);
   };
 
-  // Handle similar limit change
   const handleLimitChange = (e) => {
-    onSimilarLimitChange(index, Number(e.target.value)); // Notify parent
+    const newLimit = Number(e.target.value);
+    if (!isNaN(newLimit) && newLimit > 0) {
+      onSimilarLimitChange(index, newLimit);
+    } else {
+      console.warn("Invalid limit value:", e.target.value);
+    }
   };
 
-  // Handle fetching similar tracks
   const handleGenerateSimilarClick = () => {
-    // Pass necessary track info and the index back to the parent handler
-    // Uses title, artist name (with fallback), and mbid from the destructured track
     onFetchSimilar(index, {
       artistName: artist?.name || artist?.title,
       trackName: title,
@@ -50,12 +71,11 @@ const TrackItem = ({
     });
   };
 
-  // NEW: Handle adding a similar track to the playlist
   const handleAddSimilarTrack = (similarTrack) => {
-    // Call the parent handler, passing the similar track data
-    // Ensure similarTrack object has necessary info (at least spotifyId/Uri)
-    if (!similarTrack?.spotifyId && !similarTrack?.spotifyUri) {
-      // Added optional chaining here too for safety
+    if (
+      !similarTrack ||
+      (!similarTrack.spotifyId && !similarTrack.spotifyUri)
+    ) {
       console.warn(
         "Cannot add similar track: Missing Spotify ID or URI",
         similarTrack
@@ -63,21 +83,31 @@ const TrackItem = ({
       alert("Cannot add track: Missing Spotify info.");
       return;
     }
-    // Prefer spotifyId if available, otherwise use spotifyUri if that's how your backend works
+
     const trackToAdd = {
-      ...similarTrack, // Pass all info initially
+      ...similarTrack,
       spotifyId:
         similarTrack.spotifyId ||
         (similarTrack.spotifyUri
           ? similarTrack.spotifyUri.split(":").pop()
-          : undefined), // Extract ID if only URI is available
+          : undefined),
+      artist:
+        similarTrack.artist?.name ||
+        similarTrack.artist?.title ||
+        similarTrack.artist ||
+        "Unknown Artist",
+      album: similarTrack.album?.title || similarTrack.album || "Unknown Album",
     };
+    console.log("Attempting to add track to playlist:", trackToAdd);
     onAddTrackToPlaylist(trackToAdd);
   };
 
-  // Get artist name consistently, handles both 'name' and 'title'
-  // This logic remains correct as 'artist' is now directly available
-  const artistName = artist?.name || artist?.title;
+  const artistName = artist?.name || artist?.title || "Unknown Artist";
+
+  const albumCoverUrl =
+    album?.coverImages?.length > 0
+      ? album.coverImages[1]?.url || album.coverImages[0]?.url
+      : null;
 
   return (
     <div key={index} className={`rounded-xl overflow-hidden`}>
@@ -85,42 +115,41 @@ const TrackItem = ({
       <li
         onClick={handleItemClick}
         className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center gap-4 shadow-sm cursor-pointer transition-colors duration-200 hover:bg-white/10"
+        key={spotifyId || mbid || index} // Use a unique key on the list item
       >
-        {/* Album Cover */}
+        {/* ... Album Cover JSX ... */}
         <div className="w-16 h-16 bg-gray-300/10 rounded-md overflow-hidden flex items-center justify-center flex-shrink-0">
-          {/* Accesses album cover images using optional chaining and fallback */}
-          {/* Optional chaining album?.title remains correct and necessary */}
-          {album?.coverImages?.length > 0 &&
-          (album.coverImages[1]?.url || album.coverImages[0]?.url) ? (
+          {albumCoverUrl ? (
             <img
-              src={album.coverImages[1]?.url || album.coverImages[0]?.url}
+              src={albumCoverUrl}
               alt={album?.title || "Album Cover"}
               className="w-full h-full object-cover"
             />
           ) : (
             <div className="w-full h-full bg-gray-400/30 flex items-center justify-center">
-              <span className="text-gray-700 text-sm">No Cover</span>
+              <span className="text-gray-700 text-xs text-center">
+                No Cover
+              </span>
             </div>
           )}
         </div>
 
-        {/* Track Info */}
+        {/* ... Track Info JSX ... */}
         <div className="flex-grow">
-          {/* Displays track title - now directly available */}
-          <p className="font-semibold text-lg">{title}</p>
-          {/* Displays artist name - now directly available */}
+          <p className="font-semibold text-lg">{title || "Unknown Title"}</p>
           <p className="text-sm text-gray-300">{artistName}</p>
-          {/* Displays album title if available - optional chaining album?.title remains correct */}
           {album?.title && (
             <p className="text-xs text-gray-400 mt-1">on {album?.title}</p>
           )}
         </div>
 
-        {/* Spinner or dropdown arrow */}
+        {/* Spinner or dropdown arrow on the right */}
         <div className="flex-shrink-0 ml-auto flex items-center">
           {isLoadingSimilar ? (
-            <Spinner size="w-5 h-5" color="currentColor" /> // Use default color or primary
+            // Display spinner here when fetching similar tracks
+            <Spinner size="w-5 h-5" color="currentColor" />
           ) : (
+            // Display arrow when not loading
             <svg
               className={`w-5 h-5 transition-transform duration-300 ${
                 isOpen ? "rotate-180" : "rotate-0"
@@ -144,23 +173,22 @@ const TrackItem = ({
       {/* Expandable Content */}
       <div
         className={`transition-all duration-300 ease-in-out overflow-hidden ${
-          isOpen ? "max-h-screen opacity-100 pt-4" : "max-h-0 opacity-0"
+          isOpen ? "max-h-[500px] opacity-100 pt-4" : "max-h-0 opacity-0"
         }`}
       >
-        {/* Controls for similar tracks */}
         <div className="bg-white/5 border border-white/10 rounded-b-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          {/* ... Similar track limit select ... */}
           <label
             htmlFor={`similar-limit-${index}`}
-            className="text-sm font-medium text-gray-300"
+            className="text-sm font-medium text-gray-300 flex-shrink-0"
           >
             Similar track limit:
           </label>
-          {/* Selects the limit for similar tracks */}
           <select
             id={`similar-limit-${index}`}
             value={similarTracksLimit}
             onChange={handleLimitChange}
-            className="bg-primary border border-primary/20 rounded-lg px-3 py-1 text-white text-sm backdrop-blur-md shadow-smtransition-colors duration-300"
+            className="bg-primary border border-primary/20 rounded-lg px-3 py-1 text-white text-sm backdrop-blur-md shadow-sm transition-colors duration-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isLoadingSimilar}
           >
             {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
@@ -173,63 +201,80 @@ const TrackItem = ({
           {/* Button to generate similar tracks */}
           <button
             onClick={handleGenerateSimilarClick}
-            disabled={isLoadingSimilar}
-            className={`px-4 py-1 bg-accent hover:bg-accent-dark text-black rounded-full shadow-lg transition duration-300 text-sm ${
+            disabled={isLoadingSimilar} // <-- This disables the button
+            className={`px-4 py-1 bg-accent hover:bg-accent-dark text-black rounded-full shadow-lg transition duration-300 text-sm flex items-center justify-center gap-2 ${
               isLoadingSimilar ? "opacity-50 cursor-not-allowed" : ""
             }`}
           >
+            {/* Spinner next to the button text */}
+            {isLoadingSimilar && (
+              <Spinner size="w-4 h-4" color="currentColor" />
+            )}
             {isLoadingSimilar ? "Generating..." : "Generate Similar Tracks"}
           </button>
         </div>
 
-        {/* Similar Tracks List / Loading / Error */}
+        {/* Similar Tracks List / Error / No Results Message */}
         <div className="mt-4 space-y-2 px-4 pb-4">
-          {/* Displays error message if fetching similar tracks failed */}
+          {/* Displays error message */}
           {similarTracksError && (
             <p className="text-center text-red-400 text-sm">
               {similarTracksError}
             </p>
           )}
 
+          {/* Displays "No similar tracks found" ONLY if fetch was attempted and results are empty */}
+          {!isLoadingSimilar &&
+            !similarTracksError &&
+            similarFetchAttempted &&
+            similarTracks &&
+            similarTracks.length === 0 &&
+            isOpen && (
+              <p className="text-center text-gray-400 text-sm">
+                No similar tracks found.
+              </p>
+            )}
+
           {/* Displays the list of similar tracks */}
-          {similarTracks.length > 0 &&
-            !isLoadingSimilar &&
-            !similarTracksError && (
+          {/* Only show list if NOT loading, NO error, and similarTracks array is NOT empty */}
+          {!isLoadingSimilar &&
+            !similarTracksError &&
+            similarTracks &&
+            similarTracks.length > 0 && (
               <div>
                 <h4 className="text-md font-semibold mb-2 text-gray-300">
                   Similar Tracks:
                 </h4>
                 <ul className="space-y-2">
-                  {/* Maps through similar tracks and displays them */}
                   {similarTracks.map(
                     (similarTrack, similarIndex) =>
-                      // Added check if similarTrack is valid before rendering
-                      similarTrack && (
-                        // Make similar track items clickable to add to playlist
+                      similarTrack &&
+                      similarTrack.title && (
                         <li
-                          key={similarIndex} // Use index as key for this list
-                          onClick={() => handleAddSimilarTrack(similarTrack)} // Add click handler
-                          className="bg-white/5 border border-white/10 rounded-lg p-3 flex items-center gap-3 text-sm cursor-pointer hover:bg-white/10 transition-colors duration-200" // Add cursor and hover effect
+                          key={
+                            similarTrack.spotifyId ||
+                            similarTrack.mbid ||
+                            `${similarTrack.title}-${
+                              similarTrack.artist?.name ||
+                              similarTrack.artist?.title
+                            }-${similarIndex}`
+                          }
+                          onClick={() => handleAddSimilarTrack(similarTrack)}
+                          className="bg-white/5 border border-white/10 rounded-lg p-3 flex items-center gap-3 text-sm cursor-pointer hover:bg-white/10 transition-colors duration-200"
                         >
-                          {/* Icon or placeholder could go here */}
-                          {/* <div className="w-6 h-6 bg-gray-300/10 rounded-sm flex items-center justify-center text-gray-400"><FaPlus size={12} /></div> */}
+                          <div className="flex-shrink-0">
+                            <FaPlus size={16} className="text-accent" />
+                          </div>
                           <div>
-                            {/* Displays similar track title - optional chaining added previously handles this */}
-                            <p className="font-medium">{similarTrack?.title}</p>
-                            {/* Displays similar track artist name - optional chaining added previously handles this */}
+                            <p className="font-medium">
+                              {similarTrack?.title || "Unknown Title"}
+                            </p>
                             <p className="text-xs text-gray-400">
                               {similarTrack?.artist?.name ||
-                                similarTrack?.artist?.title}
+                                similarTrack?.artist?.title ||
+                                similarTrack?.artist ||
+                                "Unknown Artist"}
                             </p>
-                          </div>
-                          {/* Optional: Add explicit + button */}
-                          <div className="ml-auto flex-shrink-0">
-                            <button
-                              className="p-1 rounded-full text-accent hover:text-accent-dark"
-                              title="Add to playlist"
-                            >
-                              <FaPlus size={16} />
-                            </button>
                           </div>
                         </li>
                       )

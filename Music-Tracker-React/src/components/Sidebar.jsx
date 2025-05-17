@@ -9,24 +9,31 @@ import {
 } from "react-icons/fa";
 
 import { FaUser } from "react-icons/fa6";
+import { useAppContext } from "../context/AppContext";
 
-const Sidebar = ({ userInfo, onLogout, isCollapsed, onToggleCollapse }) => {
+const Sidebar = () => {
+  // get context from appcontext
+  const { userInfo, isSidebarCollapsed, toggleSidebar, logout } =
+    useAppContext();
+
   // Conditional classes for width and padding
-  const sidebarWidthClass = isCollapsed ? "w-20" : "w-64";
-  const sidebarPaddingClass = isCollapsed ? "p-4" : "p-6";
+  const sidebarWidthClass = isSidebarCollapsed ? "w-20" : "w-64";
+  const sidebarPaddingClass = isSidebarCollapsed ? "p-4" : "p-6";
 
   // Classes for the text span visibility with delay
   const textClasses = `whitespace-nowrap transition-opacity duration-200 ${
-    isCollapsed ? "opacity-0 pointer-events-none" : "opacity-100 delay-100"
+    isSidebarCollapsed
+      ? "opacity-0 pointer-events-none"
+      : "opacity-100 delay-100"
   }`;
 
   // Classes for the button's inner flex layout
   const buttonFlexClasses = `flex items-center w-full text-white text-left px-3 py-2 bg-white/10 hover:bg-white/25 rounded-lg transition ${
-    isCollapsed ? "" : "gap-3" // Apply gap only when not collapsed
+    isSidebarCollapsed ? "" : "gap-3" // Apply gap only when not collapsed
   }`;
 
   // Class to prevent icon from shrinking when collapsed
-  const iconShrinkClass = isCollapsed ? "flex-shrink-0" : "";
+  const iconShrinkClass = isSidebarCollapsed ? "flex-shrink-0" : "";
 
   return (
     <aside
@@ -35,15 +42,15 @@ const Sidebar = ({ userInfo, onLogout, isCollapsed, onToggleCollapse }) => {
       {/* Toggle Button */}
       <div
         className={`flex ${
-          isCollapsed ? "justify-center" : "justify-end"
+          isSidebarCollapsed ? "justify-center" : "justify-end"
         } mb-8`}
       >
         <button
-          onClick={onToggleCollapse}
+          onClick={toggleSidebar}
           className="p-1 rounded-full hover:bg-white/10 transition"
-          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
         >
-          {isCollapsed ? (
+          {isSidebarCollapsed ? (
             <FaChevronRight size={20} />
           ) : (
             <FaChevronLeft size={20} />
@@ -52,9 +59,11 @@ const Sidebar = ({ userInfo, onLogout, isCollapsed, onToggleCollapse }) => {
       </div>
 
       {/* Profile Section */}
-      <div className={`mb-8 ${isCollapsed ? "text-center" : ""}`}>
+      <div className={`mb-8 ${isSidebarCollapsed ? "text-center" : ""}`}>
         {/* Inner container for profile image/placeholder and text */}
-        <div className={`flex items-center ${isCollapsed ? "" : "gap-3"}`}>
+        <div
+          className={`flex items-center ${isSidebarCollapsed ? "" : "gap-3"}`}
+        >
           <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 text-sm font-bold overflow-hidden flex-shrink-0">
             {userInfo?.profile_image ? (
               <img
@@ -103,8 +112,10 @@ const Sidebar = ({ userInfo, onLogout, isCollapsed, onToggleCollapse }) => {
 
       {/* Logout Buttons */}
       <button
-        onClick={onLogout}
-        className={`${buttonFlexClasses} ${isCollapsed ? "" : "mt-auto"}`}
+        onClick={logout}
+        className={`${buttonFlexClasses} ${
+          isSidebarCollapsed ? "" : "mt-auto"
+        }`}
       >
         <FaSignOutAlt size={20} className={iconShrinkClass} /> {/* Icon */}
         <span className={textClasses}>Logout</span> {/* Text span */}

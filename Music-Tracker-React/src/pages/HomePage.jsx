@@ -1,404 +1,273 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import Sidebar from "../components/Sidebar";
-import PlaylistBar from "../components/PlaylistBar";
+import React, { useState, useEffect, useCallback } from "react"; // Import useCallback
 import RecentListensControls from "../components/RecentListensControls";
 import TrackItem from "../components/TrackItem";
 import * as apiClient from "../services/apiClient";
+import { useAppContext } from "../context/AppContext";
 import "./index.css";
+
 function HomePage() {
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(true); // State for initial page load (auth and user info)
-  const [userInfo, setUserInfo] = useState(null); // State for user info
+  const { userInfo, addTrackToPlaylist } = useAppContext();
 
-  // Tracks state now includes per-track UI state
   const [tracks, setTracks] = useState([]);
-
-  // State for the main recent listens section
   const [recentListensLimit, setRecentListensLimit] = useState(10);
   const [fetchingRecentListens, setFetchingRecentListens] = useState(false);
 
-  // State for controlling sidebar collapse
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
-
-  // Playlist States
-  const [playlistTracks, setPlaylistTracks] = useState([]);
-  const [playlistName, setPlaylistName] = useState("New Playlist");
-  const [playlistDescription, setPlaylistDescription] = useState("");
-  const [creatingPlaylist, setCreatingPlaylist] = useState(false);
-
-  // --- Handle Logout ---
-  const handleLogout = async () => {
-    try {
-      await apiClient.logout();
-      window.location.href = "/login"; // Redirect after successful logout
-    } catch (err) {
-      console.error("Error logging out:", err);
-      alert("Logout failed."); // User feedback on error
-    }
+  const initializeTracksWithUIState = (data) => {
+    return data.map((item) => ({
+      ...item.track,
+      timestamp: item.timestamp,
+      isOpen: false,
+      isLoadingSimilar: false,
+      similarTracks: [],
+      similarTracksLimit: 10,
+      similarTracksError: null,
+      similarFetchAttempted: false,
+    }));
   };
 
-  // --- Handle Authentication and Initial User Info Fetch ---
-  useEffect(() => {
-    const checkAuthAndFetchUser = async () => {
+  const handleFetchListeningHistory = useCallback(
+    async (limit = 10, startAfter = null) => {
+      setFetchingRecentListens(true);
+      // When load more is added remove this
+      // if startafter is null settracks([])
+      setTracks([]);
+      console.log("Fetching listening history...");
       try {
-        const authStatus = await apiClient.getAuthStatus();
-        console.log("Auth Status", authStatus);
-        if (!authStatus || !authStatus.loggedIn) {
-          navigate("/login");
-          return;
-        }
-
-        const userData = await apiClient.getUserInfo();
-        setUserInfo(userData);
-        setLoading(false);
-
-        // TO-DO
-        // Optionally fetch recent listens immediately after successful auth+user fetch
-        // handleFetchRecentListens();
-
-        handleFetchListeningHistory();
-        // setFetchingRecentListens(false); // Ensure this is false if not auto-fetching
+        const data = await apiClient.getListeningHistory(limit, startAfter);
+        console.log("Listening history API returned:", data);
+        // Initialize state including the new similarFetchAttempted flag
+        setTracks(initializeTracksWithUIState(data));
       } catch (err) {
-        console.error("Auth check or user info fetch failed:", err);
-        // If auth fails, redirect to login
-        navigate("/login");
+        console.error("Error fetching listening history", err);
+        alert("Failed to fetch listening history.");
+        setTracks([]);
+      } finally {
+        setFetchingRecentListens(false);
+        console.log("Finished fetching listening history.");
       }
-    };
+    },
+    []
+  );
 
-    checkAuthAndFetchUser();
-  }, [navigate]);
-
-  // --- Fetch Listening History ---
-  const handleFetchListeningHistory = async (limit = 10, startAfter = null) => {
+  const handleFetchRecentListens = useCallback(async () => {
     setFetchingRecentListens(true);
-    setTracks([]); // Clear previous tracks while fetching new ones
-
-    try {
-      const data = await apiClient.getListeningHistory(limit, startAfter);
-
-      // Map the data to add the necessary UI state properties and ensure proper timestamp handling
-      const tracksWithUIState = data.map((item) => ({
-        ...item.track, // Correctly spread the nested 'track' object (lowercase t)
-        timestamp: item.timestamp, // Correctly get the top-level 'timestamp' (lowercase t)
-        isOpen: false,
-        isLoadingSimilar: false,
-        similarTracks: [],
-        similarTracksLimit: 10,
-        similarTracksError: null,
-      }));
-
-      setTracks(tracksWithUIState); // Set the tracks with UI state
-      console.log(tracksWithUIState);
-    } catch (err) {
-      console.error("Error fetching recent listens", err);
-      alert("Failed to fetch recent listens.");
-      setTracks([]); // Clear tracks or set to empty array on error
-    } finally {
-      setFetchingRecentListens(false);
-    }
-  };
-
-  // --- Fetch Recent Listens (Manual Trigger) ---
-  const handleFetchRecentListens = async () => {
-    setFetchingRecentListens(true);
-    setTracks([]); // Clear previous tracks while fetching new ones
+    setTracks([]);
+    console.log("Fetching recent listens...");
     try {
       const data = await apiClient.getRecentListens(recentListensLimit);
-
-      // Map the fetched data to add UI state properties for each track
-      const tracksWithUIState = data.map((item) => ({
-        ...item.track, // Correctly spread the nested 'track' object (lowercase t)
-        timestamp: item.timestamp, // Correctly get the top-level 'timestamp' (lowercase t)
-        isOpen: false,
-        isLoadingSimilar: false,
-        similarTracks: [],
-        similarTracksLimit: 10,
-        similarTracksError: null,
-      }));
-
-      setTracks(tracksWithUIState); // Set the tracks with UI state
+      console.log("Recent listens API returned:", data);
+      setTracks(initializeTracksWithUIState(data));
     } catch (err) {
       console.error("Error fetching recent listens", err);
       alert("Failed to fetch recent listens.");
-      setTracks([]); // Clear tracks or set to empty array on error
+      setTracks([]);
     } finally {
       setFetchingRecentListens(false);
+      console.log("Finished fetching recent listens.");
     }
-  };
-  // --- Handle Track Tile Click (Toggle Options) ---
-  // This function now lives in the parent (HomePage) to update the state array
-  const handleTrackClick = (index) => {
+  }, [recentListensLimit]);
+
+  useEffect(() => {
+    console.log("HomePage component mounted.");
+    handleFetchListeningHistory();
+    // Empty dependency array ensures this effect runs only once on mount
+  }, []);
+
+  const handleTrackClick = useCallback((index) => {
     setTracks((prevTracks) => {
       const newTracks = [...prevTracks];
+      if (!newTracks[index]) return prevTracks;
+
       const wasOpen = newTracks[index].isOpen;
 
-      // Toggle the 'isOpen' property for the track at the given index
       newTracks[index] = {
         ...newTracks[index],
         isOpen: !wasOpen,
-        // Clear errors and loading state when closing the panel
         similarTracksError: wasOpen
           ? null
           : newTracks[index].similarTracksError,
+        // Decide if you want to stop loading if user closes panel mid-fetch
         isLoadingSimilar: wasOpen ? false : newTracks[index].isLoadingSimilar,
       };
       return newTracks;
     });
-  };
+  }, []);
 
-  // --- Handle Similar Tracks Limit Change ---
-  // This function also lives in the parent to update the state array
-  const handleSimilarLimitChange = (index, newLimit) => {
+  const handleSimilarLimitChange = useCallback((index, newLimit) => {
     setTracks((prevTracks) => {
       const newTracks = [...prevTracks];
-      // Update the 'similarTracksLimit' property for the track at the given index
+      if (!newTracks[index]) return prevTracks;
       newTracks[index] = {
         ...newTracks[index],
         similarTracksLimit: newLimit,
       };
       return newTracks;
     });
-  };
+  }, []);
 
-  // --- Handle Fetch Similar Tracks ---
-  // This function lives in the parent to update the state array after fetching
-  const handleFetchSimilarTracks = async (index, trackInfo) => {
-    // 1. Set loading state for the specific track in the parent's tracks array
-    setTracks((prevTracks) => {
-      const newTracks = [...prevTracks];
-      if (!newTracks[index]) return prevTracks; // Safety check
-      newTracks[index] = {
-        ...newTracks[index],
-        isLoadingSimilar: true,
-        similarTracks: [], // Clear previous results
-        similarTracksError: null, // Clear previous errors
-      };
-      return newTracks;
-    });
-
-    const { artistName, trackName, mbid } = trackInfo;
-    const limit = tracks[index]?.similarTracksLimit || 10; // Use current limit from state
-
-    // Explanation: Check if we have enough information to fetch similar tracks
-    // Your backend endpoint requires artist/track name OR mbid. Let's prefer artist/track.
-    if ((!artistName || !trackName) && !mbid) {
+  const handleFetchSimilarTracks = useCallback(
+    async (index, trackInfo) => {
+      // 1. Set loading state to true for the specific track
       setTracks((prevTracks) => {
         const newTracks = [...prevTracks];
         if (!newTracks[index]) return prevTracks; // Safety check
         newTracks[index] = {
           ...newTracks[index],
-          isLoadingSimilar: false, // Stop loading
-          similarTracksError:
-            "Missing artist/track name or MBID to fetch similar tracks.", // Set error
+          isLoadingSimilar: true,
+          similarTracks: [], // Clear previous results
+          similarTracksError: null, // Clear previous errors
+          similarFetchAttempted: false, // Reset attempt flag while fetching
         };
         return newTracks;
       });
-      return; // Stop execution
-    }
 
-    // 2. Perform the API call using the service
-    try {
-      const similarData = await apiClient.getSimilarTracks({
-        artist: artistName,
-        track: trackName,
-        mbid: mbid,
-        limit: limit,
-      });
+      const { artistName, trackName, mbid } = trackInfo;
+      // Use current limit from state. Access it from the state snapshot if possible,
+      // or rely on the state update from handleSimilarLimitChange having finished.
+      const currentTrackState = tracks[index];
+      const limit = currentTrackState?.similarTracksLimit || 10;
+      console.log(`Workspaceing with limit: ${limit}`);
 
-      // 3. Update the specific track's state with results
-      setTracks((prevTracks) => {
-        const newTracks = [...prevTracks];
-        if (!newTracks[index]) return prevTracks; // Safety check
-        newTracks[index] = {
-          ...newTracks[index],
-          similarTracks: similarData,
-          similarTracksError:
-            similarData.length === 0 ? "No similar tracks found." : null,
-        };
-        return newTracks;
-      });
-    } catch (err) {
-      // 4. Update the specific track's state with error
-      console.error(`Error fetching similar tracks for ${trackName}:`, err);
-      setTracks((prevTracks) => {
-        const newTracks = [...prevTracks];
-        if (!newTracks[index]) return prevTracks; // Safety check
-        newTracks[index] = {
-          ...newTracks[index],
-          similarTracksError: `Error: ${err.message}`,
-          similarTracks: [], // Clear partial results
-        };
-        return newTracks;
-      });
-    } finally {
-      // 5. Set loading state back to false for the specific track
-      setTracks((prevTracks) => {
-        const newTracks = [...prevTracks];
-        if (!newTracks[index]) return prevTracks; // Safety check
-        newTracks[index] = {
-          ...newTracks[index],
-          isLoadingSimilar: false,
-        };
-        return newTracks;
-      });
-    }
-  };
+      // Check if we have enough information
+      if ((!artistName || !trackName) && !mbid) {
+        console.warn(`Missing artist/track name or MBID for index ${index}`);
+        setTracks((prevTracks) => {
+          const newTracks = [...prevTracks];
+          if (!newTracks[index]) return prevTracks;
+          console.log(`Workspace skipped for index ${index}, setting error.`);
+          newTracks[index] = {
+            ...newTracks[index],
+            isLoadingSimilar: false, // Stop loading
+            similarTracksError:
+              "Missing artist/track name or MBID to fetch similar tracks.", // Set error
+            similarFetchAttempted: true,
+          };
+          return newTracks;
+        });
+        return;
+      }
 
-  // Playlist Handlers
-  const handleAddTrackToPlaylist = (track) => {
-    if (!track || !track.spotifyId) {
-      console.error("Cannot add track to playlist: Missing Spotify ID.");
-      alert("Failed to add track: Missing Spotify ID.");
-      return;
-    }
+      // 2. Perform the API call
+      try {
+        const similarData = await apiClient.getSimilarTracks({
+          artist: artistName,
+          track: trackName,
+          mbid: mbid,
+          limit: limit,
+        });
 
-    const isAlreadyPlaylist = playlistTracks.some(
-      (item) => item.spotifyId === track.spotifyId
-    );
-    if (isAlreadyPlaylist) {
-      console.warn("Track already in playlist:", track);
-      return;
-    }
+        console.log(
+          `API returned similar data for index ${index}:`,
+          similarData
+        );
 
-    // Add the track to the playlist state
-    setPlaylistTracks((prevTracks) => [
-      ...prevTracks,
-      {
-        spotifyId: track.spotifyId,
-        title: track.title,
-        artist: track.artist?.name || track.artist?.title,
-        album: track.album.title,
-      },
-    ]);
+        // 3. Update the specific track's state with results
+        setTracks((prevTracks) => {
+          const newTracks = [...prevTracks];
+          if (!newTracks[index]) return prevTracks; // Safety check
+          console.log(`Setting similarTracks for index ${index}`);
+          newTracks[index] = {
+            ...newTracks[index],
+            similarTracks: similarData || [],
+            similarTracksError:
+              similarData && similarData.length === 0
+                ? "No similar tracks found."
+                : null,
+            similarFetchAttempted: true,
+          };
+          return newTracks;
+        });
+      } catch (err) {
+        // 4. Update the specific track's state with error
+        console.error(
+          `Error fetching similar tracks for ${trackName} (index ${index}):`,
+          err
+        );
+        setTracks((prevTracks) => {
+          const newTracks = [...prevTracks];
+          if (!newTracks[index]) return prevTracks; // Safety check
+          console.log(`Setting similarTracksError for index ${index}`);
+          newTracks[index] = {
+            ...newTracks[index],
+            similarTracksError: `Error: ${
+              err.message || "An unknown error occurred"
+            }`,
+            similarTracks: [], // Clear partial results
+            similarFetchAttempted: true, // Mark fetch as failed attempt
+          };
+          return newTracks;
+        });
+      } finally {
+        // 5. Set loading state back to false for the specific track
+        setTracks((prevTracks) => {
+          const newTracks = [...prevTracks];
+          if (!newTracks[index]) return prevTracks; // Safety check
+          console.log(`Setting isLoadingSimilar to false for index ${index}`);
+          newTracks[index] = {
+            ...newTracks[index],
+            isLoadingSimilar: false,
+          };
+          return newTracks;
+        });
+        console.log(`Finished fetch process for index ${index}`);
+      }
+    },
+    [tracks]
+  );
 
-    console.log("Added track to playlist", track);
-  };
-
-  const handleRemoveTrackFromPlaylist = (trackId) => {
-    setPlaylistTracks((prevTracks) =>
-      prevTracks.filter((track) => track.spotifyId !== trackId)
-    );
-    console.log("Removed track from playlist with ID", trackId);
-  };
-
-  const handleCreatePlaylist = async () => {
-    if (playlistTracks.length === 0) {
-      alert("No track in playlist!");
-      return;
-    }
-
-    const trackIds = playlistTracks
-      .map((track) => track.spotifyId)
-      .filter(Boolean); // Filter for no nulls
-
-    if (trackIds === 0) {
-      alert("No valid Spotify track IDs found!");
-      return;
-    }
-
-    setCreatingPlaylist(true);
-    try {
-      const playlistData = {
-        track_ids: trackIds,
-        playlistName: playlistName,
-        description: playlistDescription,
-        is_public: true, // Add toggle for this later
-      };
-
-      const response = await apiClient.createPlaylist(playlistData);
-
-      console.log("Playlist created successfully:", response);
-
-      // Clear states
-      setPlaylistTracks([]);
-      setPlaylistName("New Playlist");
-      setPlaylistDescription("");
-    } catch (err) {
-      console.error("Error creating playlist", err.message);
-      alert(
-        `Failed to create playlist: ${
-          err.message || "An unknown error occurred"
-        }`
-      );
-    } finally {
-      setCreatingPlaylist(false);
-    }
-  };
-
-  // Show a full-page loading indicator initially
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-primary via-secondary to-black text-white font-inter selection:bg-accent selection:text-white flex items-center justify-center">
-        <p className="text-white text-xl">Loading...</p>
-      </div>
-    );
-  }
+  const handleAddTrackToPlaylist = useCallback(
+    (track) => {
+      console.log("HomePage received request to add track to playlist:", track);
+      addTrackToPlaylist(track);
+    },
+    [addTrackToPlaylist]
+  );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary via-secondary to-black text-white font-inter selection:bg-accent selection:text-white relative flex">
-      {/* Noise Overlay */}
-      <div className="bg-[url('../assets/broken-noise.png')] bg-repeat mix-blend-screen absolute inset-0 opacity-50 z-0" />
-
-      {/* Sidebar Component */}
-      <Sidebar
-        userInfo={userInfo}
-        onLogout={handleLogout}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+    <>
+      {" "}
+      {/* This content is rendered inside the <Layout> from ProtectedLayout */}
+      <h1 className="text-3xl md:text-4xl font-bold mb-8 drop-shadow-lg">
+        Welcome
+        {userInfo?.display_name
+          ? `, ${userInfo.display_name.split(" ")[0]}!`
+          : "!"}
+      </h1>
+      {/* Recent Listens Controls Component */}
+      <RecentListensControls
+        limit={recentListensLimit}
+        onLimitChange={setRecentListensLimit}
+        isLoading={fetchingRecentListens}
+        onFetch={handleFetchRecentListens}
       />
-
-      {/* Main Content */}
-      <main className="relative z-10 p-6 md:p-10 flex-1 min-w-0">
-        <h1 className="text-3xl md:text-4xl font-bold mb-8 drop-shadow-lg">
-          Welcome
-          {userInfo?.display_name
-            ? `, ${userInfo.display_name.split(" ")[0]}!`
-            : "!"}
-        </h1>
-
-        {/* Recent Listens Controls Component */}
-        <RecentListensControls
-          limit={recentListensLimit}
-          onLimitChange={setRecentListensLimit} // Pass the state setter directly
-          isLoading={fetchingRecentListens}
-          onFetch={handleFetchRecentListens}
-        />
-
-        {/* List of Tracks */}
-        {fetchingRecentListens ? (
-          <p className="text-center text-white mt-10">
-            Loading recent listens...
-          </p>
-        ) : (
-          <ul className="space-y-4">
-            {tracks.map((track, index) => (
-              // TrackItem Component
+      {/* List of Tracks */}
+      {/* Conditional render based on page-level loading state */}
+      {fetchingRecentListens ? (
+        <p className="text-center text-white mt-10">
+          Loading recent listens...
+        </p>
+      ) : (
+        <ul className="space-y-4">
+          {Array.isArray(tracks) && tracks.length > 0 ? (
+            tracks.map((track, index) => (
               <TrackItem
-                key={index} // Using index as key is ok here since list order doesn't change dynamically beyond the initial fetch
-                track={track} // Pass the individual track object (which includes its UI state)
-                index={index} // Pass index for callbacks to identify which track is acted upon
-                onToggleOpen={handleTrackClick} // Pass handler down
-                onSimilarLimitChange={handleSimilarLimitChange} // Pass handler down
-                onFetchSimilar={handleFetchSimilarTracks} // Pass handler down
+                key={track.spotifyId || track.mbid || index}
+                track={track}
+                index={index}
+                onToggleOpen={handleTrackClick}
+                onSimilarLimitChange={handleSimilarLimitChange}
+                onFetchSimilar={handleFetchSimilarTracks}
                 onAddTrackToPlaylist={handleAddTrackToPlaylist}
               />
-            ))}
-          </ul>
-        )}
-      </main>
-
-      <PlaylistBar
-        playlistTracks={playlistTracks}
-        playlistName={playlistName}
-        playlistDescription={playlistDescription}
-        onNameChange={setPlaylistName} // Pass state setter
-        onDescriptionChange={setPlaylistDescription} // Pass state setter
-        onRemoveTrack={handleRemoveTrackFromPlaylist} // Pass remove handler
-        onCreatePlaylist={handleCreatePlaylist} // Pass create handler
-        creatingPlaylist={creatingPlaylist} // Pass loading state
-      />
-    </div>
+            ))
+          ) : (
+            <p className="text-center text-white mt-10">
+              No recent listening history found.
+            </p>
+          )}
+        </ul>
+      )}
+    </>
   );
 }
 
