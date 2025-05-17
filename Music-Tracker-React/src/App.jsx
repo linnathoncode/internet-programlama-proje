@@ -7,8 +7,7 @@ import {
 } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
-//add the new page
-
+import ListeningHistory from "./pages/ListeningHistoryPage";
 // Layout Components
 import Sidebar from "./components/Sidebar";
 import PlaylistBar from "./components/PlaylistBar";
@@ -18,20 +17,8 @@ import Layout from "./layouts/Layout";
 import { AppProvider, useAppContext } from "./context/AppContext";
 
 const ProtectedLayout = () => {
-  const {
-    isSidebarCollapsed,
-    toggleSidebar,
-    userInfo,
-    logout,
-    // playlistTracks,
-    // playlistName,
-    // playlistDescription,
-    // creatingPlaylist,
-    // setPlaylistName,
-    // setPlaylistDescription,
-    // removeTrackFromPlaylist,
-    // createPlaylist,
-  } = useAppContext();
+  const { isSidebarCollapsed, toggleSidebar, userInfo, logout } =
+    useAppContext();
 
   return (
     // This is the outermost container, responsible for the overall layout
@@ -47,9 +34,6 @@ const ProtectedLayout = () => {
         <Outlet />{" "}
         {/* This is where the routed page component will be rendered */}
       </Layout>
-      {/* PlaylistBar Component - Renders directly within the main layout, uses context */}
-      {/* <PlaylistBar />{" "} */}
-      {/* PlaylistBar component will consume context internally */}
     </div>
   );
 };
@@ -63,7 +47,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route element={<ProtectedLayout />}>
             <Route path="/" element={<HomePage />} />
-            {/*add new page here */}
+            <Route path="/listening-history" element={<ListeningHistory />} />
           </Route>
         </Routes>
       </AppProvider>

@@ -1,3 +1,9 @@
+import React from "react";
+
+function ListeningHistoryPage() {
+  return <div></div>;
+}
+export default ListeningHistoryPage;
 // import React, { useEffect, useState } from "react";
 // import { useNavigate } from "react-router-dom";
 // import Sidebar from "../components/Sidebar";

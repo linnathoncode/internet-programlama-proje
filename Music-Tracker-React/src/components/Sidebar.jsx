@@ -10,11 +10,14 @@ import {
 
 import { FaUser } from "react-icons/fa6";
 import { useAppContext } from "../context/AppContext";
-
+import { useNavigate } from "react-router-dom";
 const Sidebar = () => {
   // get context from appcontext
   const { userInfo, isSidebarCollapsed, toggleSidebar, logout } =
     useAppContext();
+
+  // Navigate
+  const navigate = useNavigate();
 
   // Conditional classes for width and padding
   const sidebarWidthClass = isSidebarCollapsed ? "w-20" : "w-64";
@@ -96,11 +99,17 @@ const Sidebar = () => {
       {/* Navigation */}
       <nav className="space-y-4 flex-grow">
         {/* Navigation Links*/}
-        <button className={`${buttonFlexClasses}`}>
+        <button
+          onClick={() => navigate("/")}
+          className={`${buttonFlexClasses}`}
+        >
           <FaHome size={20} className={iconShrinkClass} /> {/* Icon */}
           <span className={textClasses}>Dashboard</span> {/* Text span */}
         </button>
-        <button className={`${buttonFlexClasses}`}>
+        <button
+          onClick={() => navigate("listening-history")}
+          className={`${buttonFlexClasses}`}
+        >
           <FaHistory size={20} className={iconShrinkClass} /> {/* Icon */}
           <span className={textClasses}>Listen History</span> {/* Text span */}
         </button>

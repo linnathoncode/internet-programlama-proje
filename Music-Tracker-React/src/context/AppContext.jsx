@@ -75,34 +75,8 @@ export const AppProvider = ({ children }) => {
       isSidebarCollapsed,
       toggleSidebar,
       logout,
-
-      // Playlist State and Handlers
-      //   playlistTracks,
-      //   playlistName,
-      //   playlistDescription,
-      //   creatingPlaylist,
-      //   setPlaylistName,
-      //   setPlaylistDescription,
-      //   addTrackToPlaylist,
-      //   removeTrackFromPlaylist,
-      //   createPlaylist,
     }),
-    [
-      userInfo,
-      loadingAuth,
-      isSidebarCollapsed,
-      toggleSidebar,
-      logout,
-      //   playlistTracks,
-      //   playlistName,
-      //   playlistDescription,
-      //   creatingPlaylist,
-      //   setPlaylistName,
-      //   setPlaylistDescription,
-      //   addTrackToPlaylist,
-      //   removeTrackFromPlaylist,
-      //   createPlaylist,
-    ]
+    [userInfo, loadingAuth, isSidebarCollapsed, toggleSidebar, logout]
   );
 
   if (loadingAuth) {
