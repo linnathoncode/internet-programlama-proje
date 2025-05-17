@@ -23,14 +23,14 @@ const ProtectedLayout = () => {
     toggleSidebar,
     userInfo,
     logout,
-    playlistTracks,
-    playlistName,
-    playlistDescription,
-    creatingPlaylist,
-    setPlaylistName,
-    setPlaylistDescription,
-    removeTrackFromPlaylist,
-    createPlaylist,
+    // playlistTracks,
+    // playlistName,
+    // playlistDescription,
+    // creatingPlaylist,
+    // setPlaylistName,
+    // setPlaylistDescription,
+    // removeTrackFromPlaylist,
+    // createPlaylist,
   } = useAppContext();
 
   return (
@@ -48,7 +48,7 @@ const ProtectedLayout = () => {
         {/* This is where the routed page component will be rendered */}
       </Layout>
       {/* PlaylistBar Component - Renders directly within the main layout, uses context */}
-      <PlaylistBar />{" "}
+      {/* <PlaylistBar />{" "} */}
       {/* PlaylistBar component will consume context internally */}
     </div>
   );

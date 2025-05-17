@@ -23,13 +23,8 @@ export const AppProvider = ({ children }) => {
 
   // Shared states
   const [userInfo, setUserInfo] = useState(null);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
   const [loadingAuth, setLoadingAuth] = useState(true);
-
-  const [playlistTracks, setPlaylistTracks] = useState([]);
-  const [playlistName, setPlaylistName] = useState("New Playlist");
-  const [playlistDescription, setPlaylistDescription] = useState("");
-  const [creatingPlaylist, setCreatingPlaylist] = useState(false);
 
   // Authentication Check and User Info Fetch
   useEffect(() => {
@@ -72,92 +67,6 @@ export const AppProvider = ({ children }) => {
     setIsSidebarCollapsed((prev) => !prev);
   }, []);
 
-  const addTrackToPlaylist = useCallback(
-    (track) => {
-      if (!track || !track.spotifyId) {
-        console.error("Cannot add track to playlist: Missing Spotify ID.");
-        alert("Failed to add track: Missing Spotify ID.");
-        return;
-      }
-
-      const isAlreadyInPlaylist = playlistTracks.some(
-        (item) => item.spotifyId === track.spotifyId
-      );
-      if (isAlreadyInPlaylist) {
-        console.warn("Track already in playlist:", track.title);
-        return;
-      }
-
-      const trackToAdd = {
-        spotifyId: track.spotifyId,
-        title: track.title,
-        artist: track.artist?.name || track.artist?.title || "Unknown Artist",
-        album: track.album?.title || "Unknown Album",
-      };
-
-      setPlaylistTracks((prevTracks) => [...prevTracks, trackToAdd]);
-
-      console.log("Added track to playlist", trackToAdd);
-    },
-    [playlistTracks]
-  );
-
-  const removeTrackFromPlaylist = useCallback((trackIdToRemove) => {
-    setPlaylistTracks((prevTracks) =>
-      prevTracks.filter((track) => track.spotifyId !== trackIdToRemove)
-    );
-    console.log("Removed track from playlist with ID", trackIdToRemove);
-  }, []);
-
-  const createPlaylist = useCallback(async () => {
-    if (playlistTracks.length === 0) {
-      alert("Add some tracks to the playlist first!");
-      return;
-    }
-
-    const trackIds = playlistTracks
-      .map((track) => track.spotifyId)
-      .filter(Boolean);
-
-    if (trackIds.length === 0) {
-      alert("No valid Spotify track IDs found in the playlist!");
-      return;
-    }
-
-    if (!playlistName.trim()) {
-      alert("Please enter a playlist name.");
-      return;
-    }
-
-    setCreatingPlaylist(true);
-    try {
-      const playlistData = {
-        track_ids: trackIds,
-        playlistName: playlistName.trim() || "New Playlist",
-        description: playlistDescription.trim() || "",
-        is_public: true,
-      };
-
-      const response = await apiClient.createPlaylist(playlistData);
-
-      console.log("Playlist created successfully:", response);
-      alert(`Playlist "${response.playlistUrl}" created successfully!`);
-
-      setPlaylistTracks([]);
-      setPlaylistName("New Playlist");
-      setPlaylistDescription("");
-    } catch (err) {
-      console.error("Error creating playlist", err);
-      const errorMessage =
-        err.response?.data?.message ||
-        err.message ||
-        "An unknown error occurred";
-      alert(`Failed to create playlist: ${errorMessage}`);
-    } finally {
-      setCreatingPlaylist(false);
-    }
-  }, [playlistTracks, playlistName, playlistDescription]);
-
   // Memoize context value to prevent unnecessary re-renders
   const contextValue = React.useMemo(
     () => ({
@@ -168,15 +77,15 @@ export const AppProvider = ({ children }) => {
       logout,
 
       // Playlist State and Handlers
-      playlistTracks,
-      playlistName,
-      playlistDescription,
-      creatingPlaylist,
-      setPlaylistName,
-      setPlaylistDescription,
-      addTrackToPlaylist,
-      removeTrackFromPlaylist,
-      createPlaylist,
+      //   playlistTracks,
+      //   playlistName,
+      //   playlistDescription,
+      //   creatingPlaylist,
+      //   setPlaylistName,
+      //   setPlaylistDescription,
+      //   addTrackToPlaylist,
+      //   removeTrackFromPlaylist,
+      //   createPlaylist,
     }),
     [
       userInfo,
@@ -184,15 +93,15 @@ export const AppProvider = ({ children }) => {
       isSidebarCollapsed,
       toggleSidebar,
       logout,
-      playlistTracks,
-      playlistName,
-      playlistDescription,
-      creatingPlaylist,
-      setPlaylistName,
-      setPlaylistDescription,
-      addTrackToPlaylist,
-      removeTrackFromPlaylist,
-      createPlaylist,
+      //   playlistTracks,
+      //   playlistName,
+      //   playlistDescription,
+      //   creatingPlaylist,
+      //   setPlaylistName,
+      //   setPlaylistDescription,
+      //   addTrackToPlaylist,
+      //   removeTrackFromPlaylist,
+      //   createPlaylist,
     ]
   );
 

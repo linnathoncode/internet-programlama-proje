@@ -17,6 +17,7 @@ const TrackItem = ({
     album,
     spotifyId,
     mbid,
+    genres,
     timestamp,
     isOpen,
     isLoadingSimilar,
@@ -110,15 +111,15 @@ const TrackItem = ({
       : null;
 
   return (
-    <div key={index} className={`rounded-xl overflow-hidden`}>
-      {/* Main track item */}
+    <div key={index} className={`rounded-x1 overflow-hidden`}>
+      {/* Main track item (li is clickable to toggle panel) */}
       <li
-        onClick={handleItemClick}
-        className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center gap-4 shadow-sm cursor-pointer transition-colors duration-200 hover:bg-white/10"
-        key={spotifyId || mbid || index} // Use a unique key on the list item
+        onClick={handleItemClick} // <-- Handles toggling the panel
+        className="bg-white/5 border border-secondary/50 rounded-xl p-4 flex items-center gap-4 shadow-sm cursor-pointer transition-colors duration-200 hover:bg-white/10"
+        key={spotifyId || mbid || index} // Key should ideally be on the list item
       >
         {/* ... Album Cover JSX ... */}
-        <div className="w-16 h-16 bg-gray-300/10 rounded-md overflow-hidden flex items-center justify-center flex-shrink-0">
+        <div className="w-18 h-18 bg-gray-300/10 rounded-md overflow-hidden flex items-center justify-center flex-shrink-0">
           {albumCoverUrl ? (
             <img
               src={albumCoverUrl}
@@ -141,15 +142,16 @@ const TrackItem = ({
           {album?.title && (
             <p className="text-xs text-gray-400 mt-1">on {album?.title}</p>
           )}
+          <p className="text-xs text-accent mt-1">
+            {genres.slice(0, 3).join(", ")}
+          </p>
         </div>
 
         {/* Spinner or dropdown arrow on the right */}
         <div className="flex-shrink-0 ml-auto flex items-center">
           {isLoadingSimilar ? (
-            // Display spinner here when fetching similar tracks
             <Spinner size="w-5 h-5" color="currentColor" />
           ) : (
-            // Display arrow when not loading
             <svg
               className={`w-5 h-5 transition-transform duration-300 ${
                 isOpen ? "rotate-180" : "rotate-0"
@@ -173,7 +175,7 @@ const TrackItem = ({
       {/* Expandable Content */}
       <div
         className={`transition-all duration-300 ease-in-out overflow-hidden ${
-          isOpen ? "max-h-[500px] opacity-100 pt-4" : "max-h-0 opacity-0"
+          isOpen ? "max-h-[2000px] opacity-100 pt-4" : "max-h-0 opacity-0" // <-- Increased max-height
         }`}
       >
         <div className="bg-white/5 border border-white/10 rounded-b-xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -200,13 +202,12 @@ const TrackItem = ({
 
           {/* Button to generate similar tracks */}
           <button
-            onClick={handleGenerateSimilarClick}
-            disabled={isLoadingSimilar} // <-- This disables the button
+            onClick={handleGenerateSimilarClick} // <-- Calls the handler with stopPropagation
+            disabled={isLoadingSimilar}
             className={`px-4 py-1 bg-accent hover:bg-accent-dark text-black rounded-full shadow-lg transition duration-300 text-sm flex items-center justify-center gap-2 ${
               isLoadingSimilar ? "opacity-50 cursor-not-allowed" : ""
             }`}
           >
-            {/* Spinner next to the button text */}
             {isLoadingSimilar && (
               <Spinner size="w-4 h-4" color="currentColor" />
             )}
@@ -216,17 +217,15 @@ const TrackItem = ({
 
         {/* Similar Tracks List / Error / No Results Message */}
         <div className="mt-4 space-y-2 px-4 pb-4">
-          {/* Displays error message */}
           {similarTracksError && (
             <p className="text-center text-red-400 text-sm">
               {similarTracksError}
             </p>
           )}
 
-          {/* Displays "No similar tracks found" ONLY if fetch was attempted and results are empty */}
           {!isLoadingSimilar &&
             !similarTracksError &&
-            similarFetchAttempted &&
+            similarFetchAttempted && // Use the flag from parent state
             similarTracks &&
             similarTracks.length === 0 &&
             isOpen && (
@@ -236,7 +235,6 @@ const TrackItem = ({
             )}
 
           {/* Displays the list of similar tracks */}
-          {/* Only show list if NOT loading, NO error, and similarTracks array is NOT empty */}
           {!isLoadingSimilar &&
             !similarTracksError &&
             similarTracks &&
@@ -259,6 +257,7 @@ const TrackItem = ({
                               similarTrack.artist?.title
                             }-${similarIndex}`
                           }
+                          // Click on the list item adds to playlist
                           onClick={() => handleAddSimilarTrack(similarTrack)}
                           className="bg-white/5 border border-white/10 rounded-lg p-3 flex items-center gap-3 text-sm cursor-pointer hover:bg-white/10 transition-colors duration-200"
                         >
