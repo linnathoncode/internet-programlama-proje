@@ -124,7 +124,6 @@ namespace Music_Tracker_Backend.Services
                 }
                 string json = await response.Content.ReadAsStringAsync();
                 using JsonDocument doc = JsonDocument.Parse(json);
-
                 List<LastfmTrack> similarTracks = new List<LastfmTrack>();
 
                 //debug
@@ -158,7 +157,13 @@ namespace Music_Tracker_Backend.Services
                                 .ToList()
                             : new List<CoverImage>()
                     };
-                    track.Genres = new List<string>(); // Not provided in this response
+                    track.Genres = trackElement.TryGetProperty("toptags", out var toptagsElement)
+                        && toptagsElement.TryGetProperty("tag", out var tagsArrayElement)
+                        ? tagsArrayElement.EnumerateArray()
+                            .Select(tag => tag.TryGetProperty("name", out var tagNameProp) ? tagNameProp.GetString() : null)
+                            .Where(name => !string.IsNullOrEmpty(name))
+                            .ToList()
+                        : new List<string>();
                     Console.WriteLine($"Similar Track Number {i}: {track.Mbid}");
                     i++;
                     similarTracks.Add(track);
