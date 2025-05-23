@@ -115,27 +115,35 @@ function HomePage() {
     }));
   };
   const handleFetchListeningHistory = useCallback(
-    async (limit = 10, startAfter = null) => {
-      setFetchingRecentListens(true);
-      // When load more is added remove this
-      // if startafter is null settracks([])
-      setTracks([]);
+    async (limit = 10) => {
+      const cursor =
+        tracks.length > 0 ? tracks[tracks.length - 1].timestamp : 0;
+
       console.log("Fetching listening history...");
       try {
-        const data = await apiClient.getListeningHistory(limit, startAfter);
-        console.log("Listening history API returned:", data);
-        // Initialize state including the new similarFetchAttempted flag
-        setTracks(initializeTracksWithUIState(data));
+        const data = await apiClient.getListeningHistory(10, cursor);
+
+        console.log("Listening history API returned:", data.error);
+
+        const newTracks = initializeTracksWithUIState(data);
+
+        // Filter out tracks that already exist (by id + timestamp)
+        const existingKeys = new Set(
+          tracks.map((t) => `${t.id}-${t.timestamp}`)
+        );
+        const deduplicatedTracks = newTracks.filter(
+          (t) => !existingKeys.has(`${t.id}-${t.timestamp}`)
+        );
+
+        setTracks((prevTracks) => [...prevTracks, ...deduplicatedTracks]);
       } catch (err) {
         console.error("Error fetching listening history", err);
         alert("Failed to fetch listening history.");
-        setTracks([]);
       } finally {
-        setFetchingRecentListens(false);
         console.log("Finished fetching listening history.");
       }
     },
-    []
+    [tracks]
   );
 
   const handleFetchRecentListens = useCallback(async () => {
@@ -158,7 +166,7 @@ function HomePage() {
 
   useEffect(() => {
     console.log("HomePage component mounted.");
-    handleFetchListeningHistory();
+    handleFetchRecentListens();
     // Empty dependency array ensures this effect runs only once on mount
   }, []);
 
@@ -331,7 +339,7 @@ function HomePage() {
             {Array.isArray(tracks) && tracks.length > 0 ? (
               tracks.map((track, index) => (
                 <TrackItem
-                  key={track.spotifyId || track.mbid || index}
+                  key={track.spotifyId + track.timestamp}
                   track={track}
                   index={index}
                   onToggleOpen={handleTrackClick}
@@ -347,6 +355,15 @@ function HomePage() {
             )}
           </ul>
         )}
+        <div className="flex justify-center mt-5">
+          <button
+            onClick={handleFetchListeningHistory}
+            disabled={fetchingRecentListens}
+            className=" px-6 py-2 bg-accent hover:bg-accent-dark text-black rounded-full transition duration-300 shadow-md disabled:opacity-50"
+          >
+            Load More
+          </button>
+        </div>
       </div>
       <PlaylistBar
         playlistTracks={playlistTracks}
@@ -360,53 +377,6 @@ function HomePage() {
       />
     </div>
   );
-
-  // return (
-  //   <>
-  //     {" "}
-  //     {/* This content is rendered inside the <Layout> from ProtectedLayout */}
-  //     <h1 className="text-3xl md:text-4xl font-bold mb-8 drop-shadow-lg">
-  //       Welcome
-  //       {userInfo?.display_name
-  //         ? `, ${userInfo.display_name.split(" ")[0]}!`
-  //         : "!"}
-  //     </h1>
-  //     {/* Recent Listens Controls Component */}
-  //     <RecentListensControls
-  //       limit={recentListensLimit}
-  //       onLimitChange={setRecentListensLimit}
-  //       isLoading={fetchingRecentListens}
-  //       onFetch={handleFetchRecentListens}
-  //     />
-  //     {/* List of Tracks */}
-  //     {/* Conditional render based on page-level loading state */}
-  //     {fetchingRecentListens ? (
-  //       <p className="text-center text-white mt-10">
-  //         Loading recent listens...
-  //       </p>
-  //     ) : (
-  //       <ul className="space-y-4">
-  //         {Array.isArray(tracks) && tracks.length > 0 ? (
-  //           tracks.map((track, index) => (
-  //             <TrackItem
-  //               key={track.spotifyId || track.mbid || index}
-  //               track={track}
-  //               index={index}
-  //               onToggleOpen={handleTrackClick}
-  //               onSimilarLimitChange={handleSimilarLimitChange}
-  //               onFetchSimilar={handleFetchSimilarTracks}
-  //               onAddTrackToPlaylist={handleAddTrackToPlaylist}
-  //             />
-  //           ))
-  //         ) : (
-  //           <p className="text-center text-white mt-10">
-  //             No recent listening history found.
-  //           </p>
-  //         )}
-  //       </ul>
-  //     )}
-  //   </>
-  // );
 }
 
 export default HomePage;

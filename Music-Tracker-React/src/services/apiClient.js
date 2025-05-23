@@ -91,7 +91,7 @@ export const getSimilarTracks = ({ artist, track, mbid, limit = 10 }) => {
   if (mbid) queryParams.append("mbid", mbid);
   queryParams.append("limit", limit);
 
-  return fetchApi(`get-similar?${queryParams.toString()}`, BASE_URL_LASTFM);
+  return fetchApi(`/get-similar?${queryParams.toString()}`, BASE_URL_LASTFM);
 };
 
 // /api/spotify

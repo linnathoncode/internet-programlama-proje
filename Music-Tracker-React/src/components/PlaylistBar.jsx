@@ -10,7 +10,7 @@ const PlaylistBar = ({
   removeTrackFromPlaylist,
   createPlaylist,
 }) => {
-  console.log(`Remove Track: ${removeTrackFromPlaylist}`);
+  // console.log(`Remove Track: ${removeTrackFromPlaylist}`);
   return (
     <aside className="sticky right-0 top-0 h-screen z-20 w-80 p-6 border-1 border-white/10 bg-primary backdrop-blur-md hidden md:flex flex-col shadow-xl shadow-primary/40 rounded-lg transition-all duration-300 ease-in-out overflow-hidden">
       <h3 className="text-xl font-bold mb-6 text-white flex-shrink-0">
